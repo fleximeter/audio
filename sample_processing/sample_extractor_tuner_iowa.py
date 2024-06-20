@@ -40,8 +40,8 @@ if re.search(r'macos', PLATFORM, re.IGNORECASE):
 ###################################################################################################
 # !! THINGS THAT MUST BE MANUALLY SET EACH TIME YOU RUN THIS PROGRAM !!
 ###################################################################################################
-DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "BassTrombone")
-DYNAMIC = "ff"  # This is something specific to Iowa samples
+DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "TenorTrombone")
+DYNAMIC = "pp"  # This is something specific to Iowa samples
 
 # 1. The minimum number of frames below the threshold for delimiting samples.
 MIN_FRAMES_BELOW_THRESHOLD = 11000
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         for file in dir_files:
             if re.search(DYNAMIC, file, re.IGNORECASE) and not re.search(r'sample\.', file, re.IGNORECASE):
                 files2.append(os.path.join(dir, file))
-    
+                
     # Distribute the audio files among the different processes. This is a good way to do it
     # because we assume that some files will be harder to process, and those will probably
     # be adjacent to each other in the folder, so we don't want to take blocks of files;
