@@ -14,6 +14,7 @@ import audiopython.analysis as analysis
 import audiopython.audiofile as audiofile
 import audiopython.operations as operations
 import audiopython.sampler as sampler
+import librosa_tuning
 import multiprocessing as mp
 import numpy as np
 import os
@@ -104,11 +105,11 @@ def extract_samples(audio_files, destination_directory):
             current_peak = np.max(np.abs(sample.samples))
             sample.samples *= 10 ** (PEAK_DBFS_FOR_FINAL_SAMPLES / 20) / current_peak
             if AUTOTUNE_SAMPLE:
-                midi = analysis.midi_estimation_from_pitch(analysis.librosa_pitch_estimation(operations.mix_if_not_mono(
-                    sample.samples
-                    ), 44100, 27.5, 5000, 0.5))
+                midi = librosa_tuning.midi_estimation_from_pitch(
+                    librosa_tuning.librosa_pitch_estimation(sample.samples, 44100, 27.5, 5000, 0.5)
+                )
                 if not np.isnan(midi) and not np.isinf(midi) and not np.isneginf(midi):
-                    sample.samples = operations.midi_tuner(sample.samples, midi, 1, 44100)
+                    sample.samples = librosa_tuning.midi_tuner(sample.samples, midi, 1, 44100)
                     sample.num_frames = sample.samples.shape[-1]
                     midi = int(np.round(midi))
             audiofile.write_with_pedalboard(sample, os.path.join(destination_directory, f"{short_name}.{i+1}.wav"))
