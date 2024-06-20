@@ -14,6 +14,8 @@ with pb.io.AudioFile(FILE, 'r') as infile:
     samples = infile.read(infile.frames)
     samplerate = infile.samplerate
 
+print(samples.shape)
+print(samples[0, 34902])
 samples = samples[0, 10000:14096]
 
 def analyze(samples, samplerate):

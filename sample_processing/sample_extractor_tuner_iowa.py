@@ -18,6 +18,7 @@ import audiopython.sampler as sampler
 import multiprocessing as mp
 import numpy as np
 import os
+import pedalboard as pb
 import platform
 import re
 import scipy.signal
@@ -39,19 +40,18 @@ if re.search(r'macos', PLATFORM, re.IGNORECASE):
 ###################################################################################################
 # !! THINGS THAT MUST BE MANUALLY SET EACH TIME YOU RUN THIS PROGRAM !!
 ###################################################################################################
-DIR = os.path.join(ROOT, "Recording", "Samples", "Iowa", "Xylophone.rosewood")
+DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "BassTrombone")
 DYNAMIC = "ff"  # This is something specific to Iowa samples
 
-# 1. The minimum number of frames in a sample. The sample will actually be a bit longer; 
-# among other things, it will include the POST_FRAMES_TO_INCLUDE.
-MIN_SAMPLE_LENGTH = 11000
+# 1. The minimum number of frames below the threshold for delimiting samples.
+MIN_FRAMES_BELOW_THRESHOLD = 11000
 
 # 2. The level at which a sample begins or ends. When the levels rise above here, we have another sample.
-SAMPLE_LEVEL_DBFS_DELIMITER = -36  
+SAMPLE_LEVEL_DBFS_DELIMITER = -350  
 
 # 3. The number of frames that will be included at the end of the sample. This helps to catch the tail
 # as it fades away. If this is too long, we might catch part of the next sample.
-POST_FRAMES_TO_INCLUDE = 11000
+POST_FRAMES_TO_INCLUDE = 1000
 
 # 4. If you want to automatically tune the sample, set this to True.
 AUTOTUNE_SAMPLE = True
@@ -64,7 +64,7 @@ CPU_COUNT = mp.cpu_count()
 PEAK_DBFS_FOR_FINAL_SAMPLES = -12
 SAMPLE_RATE = 44100
 LOWCUT_FREQ = 55
-LOWCUT = True
+LOWCUT = False
 
 # The filter we use to remove DC bias and any annoying low frequency stuff. It is more than just a 
 # DC bias filter because sometimes there is low frequency content we want to remove as well.
@@ -83,7 +83,7 @@ def extract_samples(audio_files, destination_directory):
         
         # Read the audio file and force it to the right number of dimensions
         audio = audiofile.read(file)
-        audio.samples = operations.mix_if_not_mono(audio.samples, 2)
+        audio.samples = operations.mixdown(audio.samples)
         audio.num_channels = 1
         
         # Perform preprocessing
@@ -91,25 +91,25 @@ def extract_samples(audio_files, destination_directory):
             audio.samples = scipy.signal.sosfilt(filt, audio.samples)
         
         # Extract the samples. You may need to tweak some settings here to optimize sample extraction.
-        amplitude_regions = sampler.identify_amplitude_regions(audio=audio, level_delimiter=SAMPLE_LEVEL_DBFS_DELIMITER, num_consecutive=MIN_SAMPLE_LENGTH)
-        samples = sampler.extract_samples(audio=audio, amplitude_regions=amplitude_regions, pre_frames_to_include=500, 
-                                          post_frames_to_include=POST_FRAMES_TO_INCLUDE, pre_envelope_frames=500, post_envelope_frames=500)
+        amplitude_regions = sampler.identify_amplitude_regions(audio=audio.samples, level_delimiter=SAMPLE_LEVEL_DBFS_DELIMITER, num_consecutive=MIN_FRAMES_BELOW_THRESHOLD)
+        samples = sampler.extract_samples(audio=audio.samples, amplitude_regions=amplitude_regions, pre_frames_to_include=100, 
+                                          post_frames_to_include=POST_FRAMES_TO_INCLUDE, pre_envelope_frames=100, post_envelope_frames=500)
         
         # Perform postprocessing, including scaling dynamic level and tuning
         for i, sample in enumerate(samples):
-            sample.samples = operations.leak_dc_bias_averager(sample.samples)
-            current_peak = np.max(np.abs(sample.samples))
-            sample.samples *= 10 ** (PEAK_DBFS_FOR_FINAL_SAMPLES / 20) / current_peak
-            if AUTOTUNE_SAMPLE:
-                midi = analysis.midi_estimation_from_pitch(analysis.librosa_pitch_estimation(operations.mix_if_not_mono(
-                    sample.samples
-                    ), 44100, 27.5, 5000, 0.5))
-                if not np.isnan(midi) and not np.isinf(midi) and not np.isneginf(midi):
-                    sample.samples = operations.midi_tuner(sample.samples, midi, 1, 44100)
-                    sample.num_frames = sample.samples.shape[-1]
-                    midi = int(np.round(midi))
-            audiofile.write_with_pedalboard(sample, os.path.join(destination_directory, f"{short_name}.{i+1}.wav"))
-
+            # sample.samples = operations.leak_dc_bias_averager(sample.samples)
+            current_peak = np.max(np.abs(sample))
+            sample *= 10 ** (PEAK_DBFS_FOR_FINAL_SAMPLES / 20) / current_peak
+            # if AUTOTUNE_SAMPLE:
+            #     midi = analysis.midi_estimation_from_pitch(analysis.librosa_pitch_estimation(operations.mix_if_not_mono(
+            #         sample.samples
+            #         ), 44100, 27.5, 5000, 0.5))
+            #     if not np.isnan(midi) and not np.isinf(midi) and not np.isneginf(midi):
+            #         sample.samples = operations.midi_tuner(sample.samples, midi, 1, 44100)
+            #         sample.num_frames = sample.samples.shape[-1]
+            #         midi = int(np.round(midi))
+            with pb.io.AudioFile(os.path.join(destination_directory, f"{short_name}.{i+1}.wav"), 'w', audio.sample_rate, audio.num_channels, audio.bits_per_sample) as outfile:
+                outfile.write(sample)
 
 
 if __name__ == "__main__":
@@ -117,14 +117,14 @@ if __name__ == "__main__":
     destination_directory = os.path.join(DIR, "samples")
     os.makedirs(destination_directory, 511, True)
 
-    files = audiofile.find_files(DIR)
     files2 = []
     # A basic file filter. We exclude samples that have already been created, because
     # they have "sample." in the file name. We also are targeting samples of a specific
     # dynamic level here.
-    for file in files:
-        if re.search(DYNAMIC, file, re.IGNORECASE) and not re.search(r'sample\.', file, re.IGNORECASE):
-            files2.append(file)
+    for dir, subdirs, dir_files in os.walk(DIR):
+        for file in dir_files:
+            if re.search(DYNAMIC, file, re.IGNORECASE) and not re.search(r'sample\.', file, re.IGNORECASE):
+                files2.append(os.path.join(dir, file))
     
     # Distribute the audio files among the different processes. This is a good way to do it
     # because we assume that some files will be harder to process, and those will probably
