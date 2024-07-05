@@ -27,6 +27,8 @@ if re.search(r'macos', PLATFORM, re.IGNORECASE):
 
 IN_DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "TenorTrombone")
 OUT_DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "TenorTrombone", "process")
+IN_DIR = "D:\\Recording\\Samples\\freesound\\creative_commons_0\\bell\\8916__wuola__medieval-bells"
+OUT_DIR = "D:\\Recording\\Samples\\freesound\\creative_commons_0\\bell\\8916__wuola__medieval-bells\\wav"
 
 # Basic audio stuff
 LOWCUT_FREQ = 10

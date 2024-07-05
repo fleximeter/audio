@@ -11,17 +11,37 @@ import audiopython.sampler as sampler
 import audiopython.analysis as analysis
 import audiopython.operations as operations
 import numpy as np
+import os
 import random
 import scipy.signal as signal
 
 FIELDS = [
-    "id", "file", "start_frame", "end_frame", "sample_rate", "grain_duration",
+    "id", "file", "start_frame", "end_frame", "length", "sample_rate", "grain_duration",
     "frequency", "midi", "spectral_centroid", "spectral_entropy", "spectral_flatness",
     "spectral_kurtosis", "spectral_roll_off_50", "spectral_roll_off_75",
     "spectral_roll_off_90", "spectral_roll_off_95", "spectral_skewness", "spectral_slope",
     "spectral_slope_0_1_khz", "spectral_slope_1_5_khz", "spectral_slope_0_5_khz",
     "spectral_variance"
 ]
+
+def find_path(database_path, parent_directory) -> str:
+    """
+    Resolves a database path to a path on the local machine, using a parent directory to search.
+    Searches the parent directory for a file that matches the file name in the database.
+    Note:
+    - The file name must match exactly the file name on this computer, including file extension and case.
+    - If there are multiple files located somewhere under the provided parent directory, this function might
+      not find the right file. Don't have duplicate file names in the database.
+    :param database_path: The path of the file in the database
+    :param parent_directory: The directory containing the file
+    :return: The actual file path on this machine
+    """
+    file_name = os.path.split(database_path)[-1]
+    for path, _, files in os.walk(parent_directory):
+        for file in files:
+            if file_name in file:
+                return os.path.join(path, file)
+    return ""
 
 
 def line(start: float, end: float, length: int):
@@ -63,10 +83,14 @@ def assemble(grains, features, interval, max_db=-18.0):
     return final_audio
 
 
-def realize_grains(cursor, sql):
+def realize_grains(cursor, sql, source_dir):
     """
     Retrieves grains from the database and extracts the corresponding grains.
+    :param cursor: A database cursor
     :param sql: The SQL to use
+    :param source_dir: The directory that contains the audio files to extract grains from.
+    This is needed because this might not be the directory the audio files were contained
+    in when the granulation analysis was performed.
     :return: A list of audio grain dictionaries
     """
     grains1 = cursor.execute(sql)
@@ -75,8 +99,12 @@ def realize_grains(cursor, sql):
     for grain_tup in grains1:
         grain = {FIELDS[i]: grain_tup[i] for i in range(len(grain_tup))}
         if grain["file"] not in audio:
-            audio_data = audiofile.read(grain["file"])
+            print(grain["file"])
+            audio_data = audiofile.read(find_path(grain["file"], source_dir))
             audio[grain["file"]] = audio_data.samples[0]
+        grain["frequency"] = round(grain["frequency"], -2)
+        grain["spectral_entropy"] = round(grain["spectral_entropy"], 0)
+        grain["spectral_centroid"] = round(grain["spectral_centroid"], -1)
         grain.update({"grain": audio[grain["file"]][grain["start_frame"]:grain["end_frame"]]})
         grains2.append(grain)
     return grains2
@@ -84,16 +112,26 @@ def realize_grains(cursor, sql):
 
 if __name__ == "__main__":
     random.seed()
+    
+    # The directory containing the files that were analyzed. We can search in here for the files,
+    # even if the path doesn't match exactly. This is needed because we may have performed
+    # the analysis on a different computer.
+    SOURCE_DIR = "D:\\Recording\\Samples\\freesound\\creative_commons_0\\granulation"
+    
+    # The database
     DB_FILE = "D:\\Source\\grain_processor\\data\\grains.sqlite3"
     db, cursor = grain_sql.connect_to_db(DB_FILE)
-    grains1 = realize_grains(cursor, "SELECT * FROM grains WHERE frequency BETWEEN 100.0 AND 300.0;")
+    grains1 = realize_grains(cursor, "SELECT * FROM grains WHERE frequency BETWEEN 50.0 AND 200.0;", SOURCE_DIR)
     audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=1)
-    samples = assemble(grains1, ["spectral_centroid", "spectral_slope"], 4000)
+    samples = assemble(grains1, ["spectral_entropy", "spectral_centroid", "spectral_slope_0_1_khz"], 2000)
 
     lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
     hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
     samples = signal.sosfilt(lpf, samples)
     samples = signal.sosfilt(hpf, samples)
+    samples = operations.fade_in(samples, "hanning", 22050)
+    samples = operations.fade_out(samples, "hanning", 22050)
     audio.samples = samples
 
     audiofile.write_with_pedalboard(audio, "D:\\Recording\\temp.wav")
+    db.close()
