@@ -6,6 +6,7 @@ This file contains audio effect definitions
 
 import numpy as np
 import scipy.signal
+import audiopython.synthesis as synthesis
 
 
 class AMEffect:
@@ -33,9 +34,7 @@ class AMEffect:
         """
         mod_arr = np.zeros((audio.shape[-1]))
         for i in range(len(self.freqs)):
-            step = 2 * np.pi * self.freqs[i] / self.sample_rate
-            x = np.arange(0, mod_arr.shape[-1] * step, step)
-            mod_arr += np.sin(x) * float(self.muls[i]) + float(self.adds[i])
+            mod_arr += synthesis.sine(self.freqs[i], 0, audio.shape[-1], self.sample_rate)
         if audio.ndim > 1:
             mod_arr = mod_arr.reshape((1, mod_arr.shape[-1]))
             mod_arr = mod_arr.repeat(audio.shape[0], 0)

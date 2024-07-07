@@ -4,23 +4,21 @@ File: dev.py
 This file is for experimenting.
 """
 
-import audiopython.analysis as analysis
+import audiopython.audiofile as audiofile
+import audiopython.operations as operations
+import audiopython.synthesis as synthesis
 import pedalboard as pb
 import datetime
 
-FILE = "D:\\Recording\\Samples\\Iowa\\Cello.arco.mono.2444.1\\samples_ff\\sample_Cello.arco.ff.sulA.A3Ab4.wav_7.wav"
-
-with pb.io.AudioFile(FILE, 'r') as infile:
-    samples = infile.read(infile.frames)
-    samplerate = infile.samplerate
-
-print(samples.shape)
-print(samples[0, 34902])
-samples = samples[0, 10000:14096]
-
-def analyze(samples, samplerate):
-    a = datetime.datetime.now()
-    z = analysis.analyzer(samples, samplerate)
-    print(datetime.datetime.now() - a)
-
-analyze(samples, samplerate)
+sample_rate = 44100
+length = sample_rate * 5
+sig1 = synthesis.saw(220, 20, length, sample_rate)
+sig2 = synthesis.saw(220 * 5/4, 20, length, sample_rate)
+sig3 = synthesis.saw(220 * 3/2, 20, length, sample_rate)
+sig = sig1 + sig2 + sig3
+sig = operations.adjust_level(sig, -12.0)
+sig = operations.fade_in(sig, "hanning", sample_rate // 4)
+sig = operations.fade_out(sig, "hanning", sample_rate // 4)
+audio = audiofile.AudioFile(audio_format=1, bits_per_sample=24, num_channels=1, num_frames=length, sample_rate=sample_rate)
+audio.samples = sig
+audiofile.write_with_pedalboard(audio, "D:\\Recording\\test.wav")
