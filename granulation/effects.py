@@ -7,6 +7,7 @@ This file contains audio effect definitions
 import numpy as np
 import scipy.signal
 import audiopython.synthesis as synthesis
+import pedalboard as pb
 
 
 class AMEffect:
@@ -81,3 +82,119 @@ class IdentityEffect:
         :return: The audio
         """
         return audio
+    
+
+class CompressorEffect:
+    """
+    Represents a compressor
+    """
+    def __init__(self, threshold_db: float, ratio: float, attack_ms: float, release_ms: float, sample_rate: int = 44100):
+        """
+        Initializes the compressor
+        :param threshold_db: The threshold level for the compressor
+        :param ratio: The ratio of compression
+        :param attack_ms: The delay before attack
+        :param release_ms: The delay before release
+        :param sample_rate: The sample rate
+        """
+        self.compressor = pb.Compressor(threshold_db, ratio, attack_ms, release_ms)
+        self.threshold_db = threshold_db
+        self.ratio = ratio
+        self.attack_ms = attack_ms
+        self.release_ms = release_ms
+        self.sample_rate = sample_rate
+
+    def __call__(self, audio: np.ndarray) -> np.ndarray:
+        """
+        Apply the compressor
+        :param audio: The audio
+        :return: The audio
+        """
+        return self.compressor(audio, self.sample_rate)
+
+
+class NoiseGateEffect:
+    """
+    Represents a noise gate
+    """
+    def __init__(self, threshold_db: float, ratio: float, attack_ms: float, release_ms: float, sample_rate: int = 44100):
+        """
+        Initializes the noise gate
+        :param threshold_db: The threshold level for the noise gate
+        :param ratio: The ratio of compression
+        :param attack_ms: The delay before attack
+        :param release_ms: The delay before release
+        :param sample_rate: The sample rate
+        """
+        self.noise_gate = pb.NoiseGate(threshold_db, ratio, attack_ms, release_ms)
+        self.threshold_db = threshold_db
+        self.ratio = ratio
+        self.attack_ms = attack_ms
+        self.release_ms = release_ms
+        self.sample_rate = sample_rate
+
+    def __call__(self, audio: np.ndarray) -> np.ndarray:
+        """
+        Apply the noise gate
+        :param audio: The audio
+        :return: The audio
+        """
+        return self.noise_gate(audio, self.sample_rate)
+
+
+class DelayEffect:
+    """
+    Represents a delay
+    """
+    def __init__(self, delay_seconds: float, feedback: float, mix: float, sample_rate: int = 44100):
+        """
+        Initializes the delay
+        :param delay_seconds: The delay
+        :param feedback: The feedback
+        :param mix: The mix
+        :param sample_rate: The sample rate
+        """
+        self.delay = pb.Delay(delay_seconds, feedback, mix)
+        self.delay_seconds = delay_seconds
+        self.feedback = feedback
+        self.mix = mix
+        self.sample_rate = sample_rate
+
+    def __call__(self, audio: np.ndarray) -> np.ndarray:
+        """
+        Apply the delay
+        :param audio: The audio
+        :return: The audio
+        """
+        return self.delay(audio, self.sample_rate)
+
+
+class ChorusEffect:
+    """
+    Represents a chorus
+    """
+    def __init__(self, rate_hz: float, depth: float, center_delay_ms: float, feedback: float, mix: float, sample_rate: int = 44100):
+        """
+        Initializes the chorus
+        :param rate_hz: The rate
+        :param depth: The depth
+        :param center_delay_ms: The center delay
+        :param feedback: The feedback
+        :param mix: The mix
+        :param sample_rate: The sample rate
+        """
+        self.chorus = pb.Chorus(rate_hz, depth, center_delay_ms, feedback, mix)
+        self.rate_hz = rate_hz
+        self.depth = depth
+        self.center_delay_ms = center_delay_ms
+        self.feedback = feedback
+        self.mix = mix
+        self.sample_rate = sample_rate
+
+    def __call__(self, audio: np.ndarray) -> np.ndarray:
+        """
+        Apply the chorus
+        :param audio: The audio
+        :return: The audio
+        """
+        return self.chorus(audio, self.sample_rate)

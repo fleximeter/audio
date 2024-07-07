@@ -76,9 +76,10 @@ def assemble(grains, features, interval, max_db=-18.0):
     effect_cycle = [
         IdentityEffect(), 
         IdentityEffect(), 
-        AMEffect([440, 880], [0.5, 0.5], [0.5, 0.5]), 
         IdentityEffect(), 
-        ButterworthFilterEffect(440, "lowpass", 2)
+        ButterworthFilterEffect(440, "lowpass", 2),
+        ChorusEffect(2, 0.5, 20, 0.4, 0.5),
+        ChorusEffect(2, 0.5, 20, 0.4, 0.5),
     ]
 
     # Organize the grains
@@ -152,9 +153,9 @@ if __name__ == "__main__":
     # The database
     DB_FILE = "D:\\Source\\grain_processor\\data\\grains.sqlite3"
     db, cursor = grain_sql.connect_to_db(DB_FILE)
-    grains1 = realize_grains(cursor, "SELECT * FROM grains WHERE spectral_flatness BETWEEN 0.6 AND 0.7;", SOURCE_DIR)
+    grains1 = realize_grains(cursor, "SELECT * FROM grains WHERE spectral_roll_off_50 BETWEEN 500 AND 600;", SOURCE_DIR)
     audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=1)
-    samples = assemble(grains1, ["spectral_flatness", "spectral_centroid", "spectral_slope_0_1_khz"], 2000)
+    samples = assemble(grains1, ["spectral_centroid", "spectral_flatness", "spectral_slope_0_1_khz"], 2000)
 
     lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
     hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
