@@ -19,7 +19,7 @@ from effects import *
 
 FIELDS = [
     "id", "file", "start_frame", "end_frame", "length", "sample_rate", "grain_duration",
-    "frequency", "midi", "spectral_centroid", "spectral_entropy", "spectral_flatness",
+    "frequency", "midi", "energy", "spectral_centroid", "spectral_entropy", "spectral_flatness",
     "spectral_kurtosis", "spectral_roll_off_50", "spectral_roll_off_75",
     "spectral_roll_off_90", "spectral_roll_off_95", "spectral_skewness", "spectral_slope",
     "spectral_slope_0_1_khz", "spectral_slope_1_5_khz", "spectral_slope_0_5_khz",
@@ -75,10 +75,12 @@ def assemble(grains, features, interval, max_db=-18.0):
     ]
     effect_cycle = [
         IdentityEffect(), 
-        IdentityEffect(), 
+        ChorusEffect(2, 0.5, 20, 0.4, 0.5),
         IdentityEffect(), 
         ButterworthFilterEffect(440, "lowpass", 2),
-        ChorusEffect(2, 0.5, 20, 0.4, 0.5),
+        IdentityEffect(), 
+        ButterworthFilterEffect(440, "lowpass", 2),
+        IdentityEffect(), 
         ChorusEffect(2, 0.5, 20, 0.4, 0.5),
     ]
 
@@ -87,7 +89,7 @@ def assemble(grains, features, interval, max_db=-18.0):
         grains = sorted(grains, key=lambda x: x[feature])
 
     # Create the window and initialize the window norm
-    window = np.hanning(grains[0]["grain"].size)
+    window = np.hanning(grains[0]["length"])
     window_norm = window.copy()
 
     # Apply effects
@@ -98,9 +100,10 @@ def assemble(grains, features, interval, max_db=-18.0):
     # Add the grain to the audio sequence
     grains[0]["grain"] = operations.adjust_level(grains[0]["grain"], max_db)
     final_audio = grains[0]["grain"] * window
-    
+    last_grain_onset = 0
     for i in range(1, len(grains)):
         # Apply effects
+        window = np.hanning(grains[i]["length"])
         for effect in effect_chain:
             grains[i]["grain"] = effect(grains[i]["grain"])
         grains[i]["grain"] = effect_cycle[i % len(effect_cycle)](grains[i]["grain"])
@@ -108,8 +111,11 @@ def assemble(grains, features, interval, max_db=-18.0):
         grains[i]["grain"] *= window
 
         # Add the grain to the audio sequence and update the window norm
-        final_audio = np.hstack((final_audio[:-interval], final_audio[-interval:] + grains[i]["grain"][:interval], grains[i]["grain"][interval:]))
-        window_norm = np.hstack((window_norm[:-interval], window_norm[-interval:] + window[:interval], window[interval:]))
+        overlap_num = final_audio.shape[-1] - last_grain_onset - interval
+        new_grain_onset = last_grain_onset + interval
+        final_audio = np.hstack((final_audio[:new_grain_onset], final_audio[new_grain_onset:] + grains[i]["grain"][:overlap_num], grains[i]["grain"][overlap_num:]))
+        window_norm = np.hstack((window_norm[:new_grain_onset], window_norm[new_grain_onset:] + window[:overlap_num], window[overlap_num:]))
+        last_grain_onset = new_grain_onset
     
     final_audio /= window_norm
     final_audio = np.nan_to_num(final_audio)
@@ -135,7 +141,7 @@ def realize_grains(cursor, sql, source_dir):
             print(grain["file"])
             audio_data = audiofile.read(find_path(grain["file"], source_dir))
             audio[grain["file"]] = audio_data.samples[0]
-        grain["spectral_flatness"] = round(grain["spectral_flatness"], 2)
+        grain["spectral_roll_off_50"] = round(grain["spectral_roll_off_50"], 2)
         grain["spectral_centroid"] = round(grain["spectral_centroid"], -1)
         grain.update({"grain": audio[grain["file"]][grain["start_frame"]:grain["end_frame"]]})
         grains2.append(grain)
@@ -152,17 +158,27 @@ if __name__ == "__main__":
     
     # The database
     DB_FILE = "D:\\Source\\grain_processor\\data\\grains.sqlite3"
+    SELECT = """
+        SELECT * 
+        FROM grains 
+        WHERE 
+            (spectral_flatness < 0.2) 
+            AND (length = 8192)
+            AND (spectral_roll_off_75 < 1000)
+            AND (energy > 0.2);
+    """
     db, cursor = grain_sql.connect_to_db(DB_FILE)
-    grains1 = realize_grains(cursor, "SELECT * FROM grains WHERE spectral_roll_off_50 BETWEEN 500 AND 600;", SOURCE_DIR)
+    grains1 = realize_grains(cursor, SELECT, SOURCE_DIR)
     audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=1)
-    samples = assemble(grains1, ["spectral_centroid", "spectral_flatness", "spectral_slope_0_1_khz"], 2000)
-
+    samples = assemble(grains1, ["spectral_roll_off_50", "spectral_slope_0_1_khz"], 3000)
+    
     lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
     hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
     samples = signal.sosfilt(lpf, samples)
     samples = signal.sosfilt(hpf, samples)
     samples = operations.fade_in(samples, "hanning", 22050)
     samples = operations.fade_out(samples, "hanning", 22050)
+    samples = operations.adjust_level(samples, -12)
     audio.samples = samples
 
     audiofile.write_with_pedalboard(audio, "D:\\Recording\\temp.wav")
