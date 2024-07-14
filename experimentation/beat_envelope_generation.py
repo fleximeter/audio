@@ -7,12 +7,25 @@ This file is for experimenting.
 import audiopython.audiofile as audiofile
 import audiopython.operations as operations
 import numpy as np
+import os
+import platform
 from fractions import Fraction
 
 
-FILE = "D:\\Recording\\ReaperProjects\\fixedmedia2\\algorithm.wav"
+OUT_MAC = "/Users/jmartin50/Recording"
+OUT_PC = "D:\\Recording"
+IN_MAC = "/Volumes/AudioJeff/Recording/ReaperProjects/fixedmedia2/algorithm.wav"
+IN_PC = "D:\\Recording\\ReaperProjects\\fixedmedia2\\algorithm.wav"
+SYSTEM = platform.system()
 
-audio = audiofile.read(FILE)
+if SYSTEM == "Darwin":
+    IN = IN_MAC
+    OUT = OUT_MAC
+else:
+    IN = IN_PC
+    OUT = OUT_PC
+
+audio = audiofile.read(IN)
 
 beats = [
     Fraction(1, 2), Fraction(1, 2), Fraction(1, 2), Fraction(1, 2), Fraction(1, 2), Fraction(1, 3),
@@ -42,4 +55,4 @@ a = np.repeat(a, NUM_CHANNELS, 0)
 a *= envelope
 audio.samples = a
 audio.num_channels = NUM_CHANNELS
-audiofile.write_with_pedalboard(audio, "D:\\Recording\\test4.wav")
+audiofile.write_with_pedalboard(audio, os.path.join(OUT, "test5.wav"))
