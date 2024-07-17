@@ -7,9 +7,9 @@ and generates a SuperCollider .scd file with information about the sample, inclu
 loop points and code for loading a Buffer automatically.
 """
 
-import audiopython.audiofile as audiofile
-import audiopython.operations as operations
-import audiopython.sampler as sampler
+import aus.audiofile as audiofile
+import aus.operations as operations
+import aus.sampler as sampler
 import sample_processing.sc_data_generator as sc_data_generator
 import multiprocessing as mp
 import os

@@ -11,10 +11,10 @@ The idea behind the sample extraction process is that you identify regions in th
 where the levels are consistently above a certain dBFS threshold.
 """
 
-import audiopython.analysis as analysis
-import audiopython.audiofile as audiofile
-import audiopython.operations as operations
-import audiopython.sampler as sampler
+import aus.analysis as analysis
+import aus.audiofile as audiofile
+import aus.operations as operations
+import aus.sampler as sampler
 import librosa_tuning
 import multiprocessing as mp
 import numpy as np

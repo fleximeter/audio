@@ -5,11 +5,11 @@ Description: Works with SQL database for granulation
 """
 
 import sqlite3
-import audiopython.audiofile as audiofile
-import audiopython.granulator as granulator
-import audiopython.sampler as sampler
-import audiopython.analysis as analysis
-import audiopython.operations as operations
+import aus.audiofile as audiofile
+import aus.granulator as granulator
+import aus.sampler as sampler
+import aus.analysis as analysis
+import aus.operations as operations
 import numpy as np
 
 

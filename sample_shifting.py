@@ -4,8 +4,8 @@ File: sample_shifting.py
 An experimentation with shifting samples and STFT frames in time
 """
 
-import audiopython.audiofile as audiofile
-import audiopython.operations as operations
+import aus.audiofile as audiofile
+import aus.operations as operations
 import numpy as np
 import os
 import scipy.signal as signal

@@ -6,8 +6,8 @@ A pedalboard-based file converter. This is for doing things like changing audio 
 from AIFF to WAV, along with doing cool things like HPF for eliminating DC bias.
 """
 
-import audiopython.audiofile as audiofile
-import audiopython.operations as operations
+import aus.audiofile as audiofile
+import aus.operations as operations
 import os
 import multiprocessing as mp
 import pathlib

@@ -1,11 +1,11 @@
 """
-File: dev.py
+File: beat_envelope_generation.py
 
-This file is for experimenting.
+This file is for generating beat envelopes.
 """
 
-import audiopython.audiofile as audiofile
-import audiopython.operations as operations
+import aus.audiofile as audiofile
+import aus.operations as operations
 import numpy as np
 import os
 import platform

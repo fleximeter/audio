@@ -4,9 +4,9 @@ File: basic_synthesis.py
 This file demonstrates basic sound wave shapes
 """
 
-import audiopython.audiofile as audiofile
-import audiopython.operations as operations
-import audiopython.synthesis as synthesis
+import aus.audiofile as audiofile
+import aus.operations as operations
+import aus.synthesis as synthesis
 import os
 import platform
 import numpy as np

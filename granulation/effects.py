@@ -6,7 +6,7 @@ This file contains audio effect definitions
 
 import numpy as np
 import scipy.signal
-import audiopython.synthesis as synthesis
+import aus.synthesis as synthesis
 import pedalboard as pb
 
 

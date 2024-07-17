@@ -4,11 +4,11 @@ File: granulator_dev.py
 This file is for experimenting with granulation.
 """
 
-import audiopython.audiofile as audiofile
-import audiopython.granulator as granulator
-import audiopython.operations as operations
-import audiopython.analysis as analysis
-import audiopython.sampler as sampler
+import aus.audiofile as audiofile
+import aus.granulator as granulator
+import aus.operations as operations
+import aus.analysis as analysis
+import aus.sampler as sampler
 import os
 import pedalboard as pb
 import platform
