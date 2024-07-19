@@ -1,6 +1,7 @@
 # Other stuff
 *.sqlite3
 *.DS_Store
+*.c
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

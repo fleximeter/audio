@@ -12,6 +12,8 @@ import scipy.signal as signal
 from effects import *
 import grain_assembler
 import grain_sql
+import grain_tools
+print(dir(grain_tools))
 
 
 if __name__ == "__main__":
@@ -23,12 +25,12 @@ if __name__ == "__main__":
     ]
     effect_cycle = [
         IdentityEffect(), 
+        IdentityEffect(), 
         ChorusEffect(2, 0.5, 20, 0.4, 0.5),
-        IdentityEffect(), 
         ButterworthFilterEffect(440, "lowpass", 2),
         IdentityEffect(), 
-        ButterworthFilterEffect(440, "lowpass", 2),
         IdentityEffect(), 
+        ButterworthFilterEffect(440, "lowpass", 2),
         ChorusEffect(2, 0.5, 20, 0.4, 0.5),
     ]
 
@@ -67,7 +69,11 @@ if __name__ == "__main__":
         for j in range(LIST_LENGTH):
             grain_list.append(grains1[rng.randrange(0, len(grains1))])
 
-        samples = grain_assembler.repeat(grain_list, 50, -7000, -18.0, np.hanning, effect_chain, effect_cycle)
+        samples = grain_assembler.repeat(grain_list, 200, -8100, -18.0, effect_chain, None)
+        
+        for j in range(0, len(samples)):
+            samples[j]["channel"] = (j + 1) % 2
+        samples = grain_assembler.merge(samples, 2, np.hanning)
         
         # Apply final effects to the assembled audio
         lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
@@ -79,6 +85,6 @@ if __name__ == "__main__":
         samples = operations.adjust_level(samples, -12)
 
         # Write the audio
-        audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=1)
+        audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=2)
         audio.samples = samples
         audiofile.write_with_pedalboard(audio, f"D:\\Recording\\temp6_{i+1}.wav")
