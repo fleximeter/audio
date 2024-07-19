@@ -41,7 +41,8 @@ if __name__ == "__main__":
     print(f"{len(grains1)} grains found.")
     audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=1)
     # samples = assemble_single(grains1, ["spectral_roll_off_50", "spectral_slope_0_1_khz"], 3000)
-    samples = grain_assembler.assemble_stochastic(grains1, 5, 3000, rng)
+    # samples = grain_assembler.assemble_stochastic(grains1, 5, 3000, rng)
+    samples = grain_assembler.repeat(grains1[rng.randrange(0, len(grains1))], 1000, 500)
     
     lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
     hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
@@ -52,5 +53,6 @@ if __name__ == "__main__":
     samples = operations.adjust_level(samples, -12)
     audio.samples = samples
 
-    audiofile.write_with_pedalboard(audio, "D:\\Recording\\temp4.wav")
+    audiofile.write_with_pedalboard(audio, "D:\\Recording\\temp6.wav")
     db.close()
+ 
