@@ -4,69 +4,53 @@ File: granulator_dev.py
 This file is for experimenting with granulation.
 """
 
+import grain_sql
 import aus.audiofile as audiofile
-import aus.granulator as granulator
 import aus.operations as operations
-import aus.analysis as analysis
-import aus.sampler as sampler
-import os
-import pedalboard as pb
-import platform
-import re
-import numpy as np
 import random
+import scipy.signal as signal
+from effects import *
+import grain_assembler
+import grain_sql
 
-random.seed()
 
-np.seterr(divide="ignore")
+if __name__ == "__main__":
+    rng = random.Random()
+    rng.seed()
+    
+    # The directory containing the files that were analyzed. We can search in here for the files,
+    # even if the path doesn't match exactly. This is needed because we may have performed
+    # the analysis on a different computer.
+    SOURCE_DIR = "D:\\Recording\\Samples\\freesound\\creative_commons_0\\granulation"
+    
+    # The database
+    DB_FILE = "D:\\Source\\grain_processor\\data\\grains.sqlite3"
+    SELECT = """
+        SELECT * 
+        FROM grains 
+        WHERE 
+            (spectral_flatness < 0.1) 
+            AND (length = 4096)
+            AND (spectral_roll_off_75 < 500)
+            AND (energy > 0.2);
+    """
+    db, cursor = grain_sql.connect_to_db(DB_FILE)
+    grains1 = grain_sql.realize_grains(cursor, SELECT, SOURCE_DIR)
+    if len(grains1) > 1000:
+        grains1 = grains1[:1000]
+    print(f"{len(grains1)} grains found.")
+    audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=1)
+    # samples = assemble_single(grains1, ["spectral_roll_off_50", "spectral_slope_0_1_khz"], 3000)
+    samples = grain_assembler.assemble_stochastic(grains1, 5, 3000, rng)
+    
+    lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
+    hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
+    samples = signal.sosfilt(lpf, samples)
+    samples = signal.sosfilt(hpf, samples)
+    samples = operations.fade_in(samples, "hanning", 22050)
+    samples = operations.fade_out(samples, "hanning", 22050)
+    samples = operations.adjust_level(samples, -12)
+    audio.samples = samples
 
-# Directory stuff
-WINROOT = "D:\\"
-MACROOT = "/Volumes/AudioJeff"
-PLATFORM = platform.platform()
-ROOT = WINROOT
-
-if re.search(r'macos', PLATFORM, re.IGNORECASE):
-    ROOT = MACROOT
-
-DIR = os.path.join(ROOT, "Recording", "Samples", "Iowa", "Viola.arco.mono.2444.1", "samples")
-DIR_OUT = os.path.join(ROOT, "Recording")
-
-# Basic audio stuff
-NUM_GRAINS = 20000
-GRAIN_SIZE_MIN = 1000
-GRAIN_SIZE_MAX = 10000
-
-samples = sampler.load_samples_iowa(DIR)
-grains = []
-
-for i in range(NUM_GRAINS):
-    grain_size = random.randint(GRAIN_SIZE_MIN, GRAIN_SIZE_MAX)
-    j = random.randint(0, len(samples)-1)
-    start_frame = random.randint(0, samples[j].samples.shape[-1] - grain_size)
-    grain = granulator.extract_grain(samples[j].samples, start_frame, grain_size, max_window_size=GRAIN_SIZE_MIN)
-    grain1 = sampler.Sample(grain, samples[j].sample_rate, samples[j].path)
-    grain1.midi = samples[j].midi
-    grain1.instrument_name = samples[j].instrument_type
-    grain1.dynamic_name = samples[j].dynamic_name
-    grain1.dynamic_id = samples[j].dynamic_id
-    grain1.pitched = samples[j].pitched
-    grains.append(grain1)
-
-granulator.scale_grain_peaks(grains)
-max_dbfs = granulator.find_max_grain_dbfs(grains)
-grains2 = []
-for grain in grains:
-    if operations.dbfs_audio(grain.samples) / max_dbfs < 2:
-        grain.analysis = analysis.analyzer(grain.samples, grain.sample_rate)
-        grains2.append(grain)
-
-grains2 = sorted(grains2, key=lambda x: x.analysis["spectral_roll_off_0.5"])
-grains2 = sorted(grains2, key=lambda x: x.midi)
-
-final_audio = granulator.merge_grains(grains2, GRAIN_SIZE_MIN // 2)
-final_audio = pb.LowpassFilter(4000)(final_audio, 44100)
-final_audio = pb.Compressor(-12, 4)(final_audio, 44100)
-
-with pb.io.AudioFile(f"{DIR_OUT}\\grains.wav", 'w', 44100, 1, 24) as out:
-    out.write(final_audio)
+    audiofile.write_with_pedalboard(audio, "D:\\Recording\\temp4.wav")
+    db.close()
