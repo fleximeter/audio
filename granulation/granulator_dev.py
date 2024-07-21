@@ -39,20 +39,31 @@ if __name__ == "__main__":
     
     # The database
     DB_FILE = "D:\\Source\\grain_processor\\data\\grains.sqlite3"
-    SELECT = """
+    SELECT1 = """
         SELECT * 
         FROM grains 
         WHERE 
             (spectral_flatness < 0.1) 
             AND (length = 8192)
-            AND (spectral_roll_off_75 < 500)
+            AND (spectral_roll_off_75 BETWEEN 100 AND 500)
+            AND (energy > 0.2);
+    """
+
+    SELECT2 = """
+        SELECT * 
+        FROM grains 
+        WHERE 
+            (spectral_flatness < 0.1) 
+            AND (length = 8192)
+            AND (spectral_roll_off_75 BETWEEN 1000 AND 1500)
             AND (energy > 0.2);
     """
 
     # Retrieve grain metadata and grains
     db, cursor = grain_sql.connect_to_db(DB_FILE)
-    grains1 = grain_sql.realize_grains(cursor, SELECT, SOURCE_DIR)
-    print(f"{len(grains1)} grains found.")
+    grains1 = grain_sql.realize_grains(cursor, SELECT1, SOURCE_DIR)
+    grains2 = grain_sql.realize_grains(cursor, SELECT2, SOURCE_DIR)
+    print(f"{len(grains1) + len(grains2)} grains found.")
     db.close()
 
     # Assemble grains
@@ -63,16 +74,21 @@ if __name__ == "__main__":
     NUM_CANDIDATES = 5
     for i in range(NUM_CANDIDATES):
         LIST_LENGTH = 10
-        grain_list = []
+        grain_list1 = []
+        grain_list2 = []
         for j in range(LIST_LENGTH):
-            grain_list.append(grains1[rng.randrange(0, len(grains1))])
+            grain_list1.append(grains1[rng.randrange(0, len(grains1))])
+            grain_list2.append(grains2[rng.randrange(0, len(grains2))])
 
-        grains = grain_assembler.assemble_repeat(grain_list, 200, -8100, -18.0, effect_chain, None)
+        grains1 = grain_assembler.assemble_repeat(grain_list1, 200, -8100, -18.0, effect_chain, None)
+        grains2 = grain_assembler.assemble_repeat(grain_list2, 200, -8100, -18.0, effect_chain, None)
         
-        for j in range(0, len(grain_audio)):
-            grains[j]["channel"] = (j + 1) % 2
+        for j in range(0, len(grains1)):
+            grains1[j]["channel"] = (j + 1) % 2
+            grains2[j]["channel"] = (j + 1) % 2
 
         # Merge the grains into their final positions in an audio array
+        grains = grain_assembler.interpolate(grains1, grains2)
         grain_assembler.calculate_grain_positions(grains)
         grain_audio = grain_assembler.merge(grains, 2, np.hanning)
         
@@ -88,4 +104,4 @@ if __name__ == "__main__":
         # Write the audio
         audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=2)
         audio.samples = grain_audio
-        audiofile.write_with_pedalboard(audio, f"D:\\Recording\\temp8_{i+1}.wav")
+        audiofile.write_with_pedalboard(audio, f"D:\\Recording\\temp9_{i+1}.wav")

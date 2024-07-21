@@ -182,8 +182,8 @@ def interpolate(grains1: list, grains2: list, interpolations=None) -> list:
     for i in range(interpolations):
         new1 = slope1 * i + height1
         new2 = slope2 * i
-        end1 = min(start1 + new1, len(grains1))
-        end2 = min(start2 + new2, len(grains2))
+        end1 = int(min(start1 + new1, len(grains1)))
+        end2 = int(min(start2 + new2, len(grains2)))
         grains1_new.append(grains1[start1:end1])
         grains2_new.append(grains2[start2:end2])
         start1 = end1
@@ -193,18 +193,21 @@ def interpolate(grains1: list, grains2: list, interpolations=None) -> list:
     # If any grains remain, pad the existing lists
     while start1 < len(grains1):
         grains1_new[i].append(grains1[start1])
-        i += 1
+        i = (i + 1) % len(grains1_new)
         start1 += 1
     i = 0
     while start2 < len(grains2):
         grains2_new[i].append(grains2[start2])
-        i += 1
+        i = (i + 1) % len(grains2_new)
         start2 += 1
 
     # Merge the grains
     newgrains = []
     for i in range(len(grains1_new)):
-        newgrains += interleave(grains1_new[i], grains2_new[i])
+        if len(grains1_new[i]) > 0 and len(grains2[i]) > 0:
+            newgrains += interleave(grains1_new[i], grains2_new[i])
+        else:
+            newgrains += grains1_new[i] + grains2_new[i]
     
     return newgrains
 
