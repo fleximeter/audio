@@ -155,14 +155,19 @@ def assemble_repeat(grain, n: int, distance_between_grains: int, max_db: float =
     return grain_pos_list
 
 
-def interpolate(grains1: list, grains2: list, interpolations: int) -> list:
+def interpolate(grains1: list, grains2: list, interpolations=None) -> list:
     """
     Creates a new list of grains that interpolates linearly between two existing grain lists.
     :param grains1: A list of grains
     :param grains2: A list of grains
-    :param interpolations: The number of interpolation chunk pairs
+    :param interpolations: The number of interpolation chunk pairs. If None, will be determined automatically.
+    This parameter can be adjusted to change the smoothness of interpolation.
     :return: An interpolated grains list
     """
+    if interpolations is None:
+        smaller_area = min(len(grains1), len(grains2))
+        interpolations = int(np.ceil(np.sqrt(smaller_area * 2)))
+    
     # Calculate the slope for linear interpolation
     height1 = 2 * len(grains1) / interpolations
     height2 = 2 * len(grains2) / interpolations
@@ -199,9 +204,65 @@ def interpolate(grains1: list, grains2: list, interpolations: int) -> list:
     # Merge the grains
     newgrains = []
     for i in range(len(grains1_new)):
-        newgrains += grains1_new[i]
-        newgrains += grains2_new[i]
+        newgrains += interleave(grains1_new[i], grains2_new[i])
+    
     return newgrains
+
+
+def interleave(list1: list, list2: list) -> list:
+    """
+    Interleaves two lists of possibly different length. The goal is to interleave as evenly as possible.
+    :param list1: A list
+    :param list2: A list
+    :return: A combined list
+    """
+    # Determine which list is larger and which is smaller. Also determine the size ratio between the two lists.
+    if len(list1) < len(list2):
+        larger_list = list2
+        smaller_list = list1
+    else:
+        larger_list = list1
+        smaller_list = list2
+    ideal_ratio = len(larger_list) / len(smaller_list)
+
+    # The number added from each list
+    list1_num_added = 0
+    list2_num_added = 0
+
+    combined_list = []
+
+    # Add the first batch
+    batch_size_1 = round(ideal_ratio)
+    batch_size_2 = 1
+    combined_list += list1[:batch_size_1]
+    combined_list += list2[:batch_size_2]
+    list1_num_added += batch_size_1
+    list2_num_added += batch_size_2
+
+    # Add until one or both lists are exhausted
+    while list1_num_added < len(larger_list) and list2_num_added < len(smaller_list):
+        # Fiddle with the number of items to add from each list
+        temp_batch_size_1 = batch_size_1
+        temp_batch_size_2 = batch_size_2
+        current_ratio = list1_num_added / list2_num_added
+        if current_ratio < ideal_ratio:
+            temp_batch_size_1 += 1
+        elif current_ratio > ideal_ratio:
+            temp_batch_size_2 += 1
+        temp_batch_size_1 = min(temp_batch_size_1, len(list1) - list1_num_added)
+        temp_batch_size_2 = min(temp_batch_size_2, len(list2) - list2_num_added)
+
+        # Add this batch of items
+        combined_list += list1[list1_num_added:list1_num_added+temp_batch_size_1]
+        combined_list += list2[list2_num_added:list2_num_added+temp_batch_size_2]
+        list1_num_added += temp_batch_size_1
+        list2_num_added += temp_batch_size_2
+    
+    # Add any remaining items
+    combined_list += list1[list1_num_added:]
+    combined_list += list2[list2_num_added:]
+
+    return combined_list
     
 
 def calculate_grain_positions(grains: list):
