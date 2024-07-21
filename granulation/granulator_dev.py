@@ -12,8 +12,6 @@ import scipy.signal as signal
 from effects import *
 import grain_assembler
 import grain_sql
-import grain_tools
-print(dir(grain_tools))
 
 
 if __name__ == "__main__":
@@ -69,22 +67,25 @@ if __name__ == "__main__":
         for j in range(LIST_LENGTH):
             grain_list.append(grains1[rng.randrange(0, len(grains1))])
 
-        samples = grain_assembler.repeat(grain_list, 200, -8100, -18.0, effect_chain, None)
+        grains = grain_assembler.assemble_repeat(grain_list, 200, -8100, -18.0, effect_chain, None)
         
-        for j in range(0, len(samples)):
-            samples[j]["channel"] = (j + 1) % 2
-        samples = grain_assembler.merge(samples, 2, np.hanning)
+        for j in range(0, len(grain_audio)):
+            grains[j]["channel"] = (j + 1) % 2
+
+        # Merge the grains into their final positions in an audio array
+        grain_assembler.calculate_grain_positions(grains)
+        grain_audio = grain_assembler.merge(grains, 2, np.hanning)
         
         # Apply final effects to the assembled audio
         lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
         hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
-        samples = signal.sosfilt(lpf, samples)
-        samples = signal.sosfilt(hpf, samples)
-        samples = operations.fade_in(samples, "hanning", 22050)
-        samples = operations.fade_out(samples, "hanning", 22050)
-        samples = operations.adjust_level(samples, -12)
+        grain_audio = signal.sosfilt(lpf, grain_audio)
+        grain_audio = signal.sosfilt(hpf, grain_audio)
+        grain_audio = operations.fade_in(grain_audio, "hanning", 22050)
+        grain_audio = operations.fade_out(grain_audio, "hanning", 22050)
+        grain_audio = operations.adjust_level(grain_audio, -12)
 
         # Write the audio
         audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=2)
-        audio.samples = samples
-        audiofile.write_with_pedalboard(audio, f"D:\\Recording\\temp6_{i+1}.wav")
+        audio.samples = grain_audio
+        audiofile.write_with_pedalboard(audio, f"D:\\Recording\\temp8_{i+1}.wav")
