@@ -40,78 +40,65 @@ if __name__ == "__main__":
     # The database
     DB_FILE = "D:\\Source\\grain_processor\\data\\grains.sqlite3"
     SELECT = [
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.01 AND 0.1) 
-            AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 100 AND 500)
-            AND (energy > 0.2);
-        """,
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.1 AND 0.2) 
-            AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 100 AND 500)
-            AND (energy BETWEEN 0.1 AND 0.2);
-        """,
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.2 AND 0.3) 
-            AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 300 AND 1100)
-            AND (energy > 0.1);
-        """,
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.0 AND 0.3) 
-            AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 1300 AND 1500)
-            AND (energy > 0.1);
-        """,
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.3 AND 0.4) 
-            AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 1200 AND 1800)
-            AND (energy > 0.1);
-        """,
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.1 AND 0.4) 
-            AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 1200 AND 2400)
-            AND (energy > 0.1);
-        """,
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.5 AND 0.6) 
-            AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 1000 AND 3000)
-            AND (energy > 0.1);
-        """,
-        """
-        SELECT * 
-        FROM grains 
-        WHERE 
-            (spectral_flatness BETWEEN 0.7 AND 1.0)
-            AND (length = 8192);
-        """
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
+            AND (spectral_roll_off_75 BETWEEN 100 AND 600);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.1 AND 0.3) 
+            AND (spectral_roll_off_75 BETWEEN 100 AND 700);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
+            AND (spectral_roll_off_75 BETWEEN 100 AND 700);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.1 AND 0.5) 
+            AND (spectral_roll_off_75 BETWEEN 200 AND 800);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
+            AND (spectral_roll_off_75 BETWEEN 200 AND 1000);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.1 AND 0.2) 
+            AND (spectral_roll_off_75 BETWEEN 400 AND 1000);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
+            AND (spectral_roll_off_75 BETWEEN 500 AND 1200);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.2 AND 0.8) 
+            AND (spectral_roll_off_75 BETWEEN 500 AND 1400);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
+            AND (spectral_roll_off_75 BETWEEN 700 AND 1400);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.5 AND 1.0) 
+            AND (spectral_roll_off_75 BETWEEN 800 AND 1400);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
+            AND (spectral_roll_off_75 BETWEEN 900 AND 1600);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.3 AND 0.7) 
+            AND (spectral_roll_off_75 BETWEEN 900 AND 1800);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
+            AND (spectral_roll_off_75 BETWEEN 1100 AND 1800);""",
+        """SELECT * FROM grains 
+        WHERE (length = 8192)
+            AND (spectral_flatness BETWEEN 0.1 AND 0.4) 
+            AND (spectral_roll_off_75 BETWEEN 1200 AND 2000);""",
     ]
 
+    print("Retrieving grains...")
     # Retrieve grain metadata and grains
     db, cursor = grain_sql.connect_to_db(DB_FILE)
     grain_categories = []
@@ -123,7 +110,7 @@ if __name__ == "__main__":
     db.close()
 
     # Generate candidate audio
-    NUM_AUDIO_CANDIDATES = 1
+    NUM_AUDIO_CANDIDATES = 5
     NUM_CHANNELS = 2
     for i in range(NUM_AUDIO_CANDIDATES):
         print(f"Generating audio candidate {i+1}...")
@@ -168,7 +155,7 @@ if __name__ == "__main__":
         grain_audio = operations.fade_in(grain_audio, "hanning", 22050)
         grain_audio = operations.fade_out(grain_audio, "hanning", 22050)
         grain_audio = grain_audio * 0.2
-        grain_audio = operations.adjust_level(grain_audio, -12)
+        grain_audio = operations.adjust_level(grain_audio, -3)
 
         # Write the audio
         audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=NUM_CHANNELS)
