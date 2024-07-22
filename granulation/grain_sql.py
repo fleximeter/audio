@@ -6,6 +6,7 @@ Description: Works with SQL database for granulation
 
 import sqlite3
 import aus.audiofile as audiofile
+import numpy as np
 import os
 
 
@@ -67,13 +68,15 @@ def realize_grains(cursor, sql, source_dir):
     for grain_tup in grains1:
         grain = {FIELDS[i]: grain_tup[i] for i in range(len(grain_tup))}
         if grain["file"] not in audio:
-            print(grain["file"])
+            # print(grain["file"])
             audio_data = audiofile.read(find_path(grain["file"], source_dir))
             audio[grain["file"]] = audio_data.samples[0]
         grain["spectral_roll_off_50"] = round(grain["spectral_roll_off_50"], 2)
         grain["spectral_centroid"] = round(grain["spectral_centroid"], -1)
         grain.update({"grain": audio[grain["file"]][grain["start_frame"]:grain["end_frame"]]})
-        grains2.append(grain)
+        # weed out grains with bad values
+        if not (np.isnan(grain["grain"]).any() or np.isinf(grain["grain"]).any() or np.isneginf(grain["grain"]).any()):
+            grains2.append(grain)
     return grains2
 
 

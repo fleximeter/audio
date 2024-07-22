@@ -65,7 +65,7 @@ if __name__ == "__main__":
             (spectral_flatness BETWEEN 0.2 AND 0.3) 
             AND (length = 8192)
             AND (spectral_roll_off_75 BETWEEN 300 AND 1100)
-            AND (energy > 0.2);
+            AND (energy > 0.1);
         """,
         """
         SELECT * 
@@ -73,8 +73,8 @@ if __name__ == "__main__":
         WHERE 
             (spectral_flatness BETWEEN 0.0 AND 0.3) 
             AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 1000 AND 1500)
-            AND (energy > 0.2);
+            AND (spectral_roll_off_75 BETWEEN 1300 AND 1500)
+            AND (energy > 0.1);
         """,
         """
         SELECT * 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         WHERE 
             (spectral_flatness BETWEEN 0.1 AND 0.4) 
             AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 1400 AND 2000)
+            AND (spectral_roll_off_75 BETWEEN 1200 AND 2400)
             AND (energy > 0.1);
         """,
         """
@@ -100,63 +100,64 @@ if __name__ == "__main__":
         WHERE 
             (spectral_flatness BETWEEN 0.5 AND 0.6) 
             AND (length = 8192)
-            AND (spectral_roll_off_75 BETWEEN 1500 AND 2000)
+            AND (spectral_roll_off_75 BETWEEN 1000 AND 3000)
             AND (energy > 0.1);
         """,
         """
         SELECT * 
         FROM grains 
         WHERE 
-            (spectral_flatness BETWEEN 0.6 AND 1.0) 
+            (spectral_flatness BETWEEN 0.7 AND 1.0)
             AND (length = 8192);
         """
     ]
 
     # Retrieve grain metadata and grains
     db, cursor = grain_sql.connect_to_db(DB_FILE)
-    grain_chunks = []
+    grain_categories = []
     for i, select in enumerate(SELECT):
-        chunk = grain_sql.realize_grains(cursor, select, SOURCE_DIR)
-        if len(chunk) == 0:
+        category = grain_sql.realize_grains(cursor, select, SOURCE_DIR)
+        if len(category) == 0:
             raise Exception(f"No grains found for index {i}.")
-        grain_chunks.append(chunk)
+        grain_categories.append(category)
     db.close()
 
-    # Assemble grains
-    # samples = assemble_single(grains1, ["spectral_roll_off_50", "spectral_slope_0_1_khz"], 3000, -18.0, np.hanning, effect_chain, effect_cycle)
-    # samples = grain_assembler.assemble_stochastic(grains1, 5, 3000, rng, -18.0, np.hanning, effect_chain, effect_cycle)
-
     # Generate candidate audio
-    NUM_CANDIDATES = 1
-    for i in range(NUM_CANDIDATES):
+    NUM_AUDIO_CANDIDATES = 1
+    NUM_CHANNELS = 2
+    for i in range(NUM_AUDIO_CANDIDATES):
         print(f"Generating audio candidate {i+1}...")
         # Each chunk will use 10 different grains
-        LIST_LENGTH = 10
+        NUM_UNIQUE_GRAINS = 20
 
-        # Assemble the chunks
-        grain_temp_lists = []
-        for j in range(len(grain_chunks)):
-            temp_list = []
-            for k in range(LIST_LENGTH):
-                temp_list.append(grain_chunks[j][rng.randrange(0, len(grain_chunks[j]))])
-            grain_temp_lists.append(temp_list)
+        # Assemble the unique grain lists. There will be N lists, one for each SELECT statement.
+        unique_grain_lists = []
+        for j, category in enumerate(grain_categories):
+            grain_list = []
+            # select NUM unique grains
+            for num in range(NUM_UNIQUE_GRAINS):
+                grain_list.append(category[rng.randrange(0, len(category))])
+            unique_grain_lists.append(grain_list)
         
         # Repeat the chunks to make longer audio
-        grain_lists = []
-        for j in range(len(grain_chunks)):
-            grain_list = grain_assembler.assemble_repeat(grain_temp_lists[j], 200, -8150, -18.0, effect_chain, None)            
-            for j in range(0, len(grain_list)):
-                grain_list[j]["channel"] = (j + 1) % 2
-            grain_lists.append(grain_list)
+        repeated_grain_lists = []
+        for j, unique_grain_list in enumerate(unique_grain_lists):
+            repeated_grain_list = grain_assembler.assemble_repeat(unique_grain_list, 100, -8150, -18.0, effect_chain, None)
+
+            # mess with channel indices         
+            for k in range(0, len(repeated_grain_list)):
+                repeated_grain_list[k]["channel"] = (k + 1) % NUM_CHANNELS
+            
+            repeated_grain_lists.append(repeated_grain_list)
         
         # Merge the grains into their final positions in an audio array
-        grains = grain_lists[0][:len(grain_lists[0]) // 2]
-        for j in range(1, len(grain_lists)):
-            grains += grain_assembler.interpolate(grain_lists[j-1][len(grain_lists[j-1])//2:], grain_lists[j][:len(grain_lists[j])//2])
-        grains += grain_lists[-1][len(grain_lists[-1])//2:]
+        grains = repeated_grain_lists[0][:len(repeated_grain_lists[0]) // 2]
+        for j in range(1, len(repeated_grain_lists)):
+            grains += grain_assembler.interpolate(repeated_grain_lists[j-1][len(repeated_grain_lists[j-1])//2:], repeated_grain_lists[j][:len(repeated_grain_lists[j])//2])
+        grains += repeated_grain_lists[-1][len(repeated_grain_lists[-1])//2:]
         
         grain_assembler.calculate_grain_positions(grains)
-        grain_audio = grain_assembler.merge(grains, 2, np.hanning)
+        grain_audio = grain_assembler.merge(grains, NUM_CHANNELS, np.hanning)
         # grain_audio = operations.force_equal_energy(grain_audio, -12)
         
         # Apply final effects to the assembled audio
@@ -166,10 +167,12 @@ if __name__ == "__main__":
         grain_audio = signal.sosfilt(hpf, grain_audio)
         grain_audio = operations.fade_in(grain_audio, "hanning", 22050)
         grain_audio = operations.fade_out(grain_audio, "hanning", 22050)
+        grain_audio = grain_audio * 0.2
         grain_audio = operations.adjust_level(grain_audio, -12)
 
         # Write the audio
-        audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=2)
+        audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=NUM_CHANNELS)
         audio.samples = grain_audio
         audiofile.write_with_pedalboard(audio, f"D:\\Recording\\temp9_{i+1}.wav")
+
         print("Done.")

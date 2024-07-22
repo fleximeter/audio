@@ -123,7 +123,7 @@ def assemble_repeat(grain, n: int, distance_between_grains: int, max_db: float =
         grains = [grain] * n
     elif type(grain) == list:
         grains = grain * n
-
+    
     # Apply effects
     if effect_chain is not None:
         for effect in effect_chain:
@@ -138,6 +138,7 @@ def assemble_repeat(grain, n: int, distance_between_grains: int, max_db: float =
         "channel": 0,
         "distance_between_grains": distance_between_grains
     }]
+    
     for i in range(1, len(grains)):
         # Apply effects
         if effect_chain is not None:
