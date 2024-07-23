@@ -1,7 +1,7 @@
 """
-File: granulator_dev.py
+File: render_dev.py
 
-This file is for experimenting with granulation.
+This grain realizer is for experimentation.
 """
 
 import grain_sql
