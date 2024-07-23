@@ -52,20 +52,18 @@ def find_path(database_path, parent_directory) -> str:
     return ""
 
 
-def realize_grains(cursor, sql, source_dir):
+def realize_grains(grain_entries, source_dir):
     """
-    Retrieves grains from the database and extracts the corresponding grains.
-    :param cursor: A database cursor
-    :param sql: The SQL to use
+    Extracts the corresponding grains from database records.
+    :param grain_entries: The grain records to use
     :param source_dir: The directory that contains the audio files to extract grains from.
     This is needed because this might not be the directory the audio files were contained
     in when the granulation analysis was performed.
     :return: A list of audio grain dictionaries
     """
-    grains1 = cursor.execute(sql)
     audio = {}  # Holds the unique audio files that we are extracting grains from
     grains2 = []  # A list of grain dictionaries
-    for grain_tup in grains1:
+    for grain_tup in grain_entries:
         grain = {FIELDS[i]: grain_tup[i] for i in range(len(grain_tup))}
         if grain["file"] not in audio:
             # print(grain["file"])
@@ -78,22 +76,6 @@ def realize_grains(cursor, sql, source_dir):
         if not (np.isnan(grain["grain"]).any() or np.isinf(grain["grain"]).any() or np.isneginf(grain["grain"]).any()):
             grains2.append(grain)
     return grains2
-
-
-def retrieve_grains(cursor):
-    """
-    Retrieves grains from the database
-    :param cursor: The cursor for executing SQL
-    :param analyzed: Whether to retrieve only grains that have been analyzed or have not been analyzed. 
-    If None, will retrive all grains. If True, will retrieve only analyzed grains. 
-    If False, will retrieve only unanalyzed grains.
-    :return: The grains
-    """
-    SQL = """
-        SELECT *
-        FROM grains;
-        """
-    return cursor.execute(SQL)
 
 
 def store_grains(grains, db, cursor):

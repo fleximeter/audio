@@ -36,7 +36,7 @@ if __name__ == "__main__":
     # The directory containing the files that were analyzed. We can search in here for the files,
     # even if the path doesn't match exactly. This is needed because we may have performed
     # the analysis on a different computer.
-    SOURCE_DIR = "D:\\Recording\\Samples\\freesound\\creative_commons_0\\granulation"
+    SOURCE_DIR = "D:\\Recording\\Samples\\granulation_public_domain"
     
     # The database
     DB_FILE = "D:\\Source\\grain_processor\\data\\grains.sqlite3"
@@ -44,74 +44,75 @@ if __name__ == "__main__":
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 600);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 200);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.1 AND 0.3) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 700);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 300);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 700);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 200);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.1 AND 0.5) 
-            AND (spectral_roll_off_75 BETWEEN 200 AND 800);""",
+            AND (spectral_roll_off_75 BETWEEN 200 AND 400);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
-            AND (spectral_roll_off_75 BETWEEN 200 AND 1000);""",
+            AND (spectral_roll_off_75 BETWEEN 200 AND 500);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.1 AND 0.2) 
-            AND (spectral_roll_off_75 BETWEEN 400 AND 1000);""",
+            AND (spectral_roll_off_75 BETWEEN 400 AND 6000);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
-            AND (spectral_roll_off_75 BETWEEN 500 AND 1200);""",
+            AND (spectral_roll_off_75 BETWEEN 300 AND 600);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.2 AND 0.8) 
-            AND (spectral_roll_off_75 BETWEEN 500 AND 1400);""",
+            AND (spectral_roll_off_75 BETWEEN 500 AND 700);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
-            AND (spectral_roll_off_75 BETWEEN 700 AND 1400);""",
+            AND (spectral_roll_off_75 BETWEEN 500 AND 800);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.5 AND 1.0) 
-            AND (spectral_roll_off_75 BETWEEN 800 AND 1400);""",
+            AND (spectral_roll_off_75 BETWEEN 700 AND 800);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
-            AND (spectral_roll_off_75 BETWEEN 900 AND 1600);""",
+            AND (spectral_roll_off_75 BETWEEN 700 AND 900);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.3 AND 0.7) 
-            AND (spectral_roll_off_75 BETWEEN 900 AND 1800);""",
+            AND (spectral_roll_off_75 BETWEEN 800 AND 900);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
-            AND (spectral_roll_off_75 BETWEEN 1100 AND 1800);""",
+            AND (spectral_roll_off_75 BETWEEN 800 AND 1000);""",
         """SELECT * FROM grains 
         WHERE (length = 8192)
             AND (spectral_flatness BETWEEN 0.1 AND 0.4) 
-            AND (spectral_roll_off_75 BETWEEN 1200 AND 2000);""",
+            AND (spectral_roll_off_75 BETWEEN 900 AND 1000);""",
     ]
 
     print("Retrieving grains...")
     # Retrieve grain metadata and grains
     db, cursor = grain_sql.connect_to_db(DB_FILE)
-    grain_categories = []
+    grain_entry_categories = []
     for i, select in enumerate(SELECT):
-        category = grain_sql.realize_grains(cursor, select, SOURCE_DIR)
-        if len(category) == 0:
+        cursor.execute(select)
+        entry_category = cursor.fetchall()
+        if len(entry_category) == 0:
             raise Exception(f"No grains found for index {i}.")
-        grain_categories.append(category)
+        grain_entry_categories.append(entry_category)
     db.close()
 
     # Generate candidate audio
-    NUM_AUDIO_CANDIDATES = 5
+    NUM_AUDIO_CANDIDATES = 1
     NUM_CHANNELS = 2
     for i in range(NUM_AUDIO_CANDIDATES):
         print(f"Generating audio candidate {i+1}...")
@@ -120,11 +121,12 @@ if __name__ == "__main__":
 
         # Assemble the unique grain lists. There will be N lists, one for each SELECT statement.
         unique_grain_lists = []
-        for j, category in enumerate(grain_categories):
+        for j, entry_category in enumerate(grain_entry_categories):
             grain_list = []
             # select NUM unique grains
             for num in range(NUM_UNIQUE_GRAINS):
-                grain_list.append(category[rng.randrange(0, len(category))])
+                grain_list.append(entry_category[rng.randrange(0, len(entry_category))])
+            grain_list = grain_sql.realize_grains(grain_list, SOURCE_DIR)
             unique_grain_lists.append(grain_list)
         
         # Repeat the chunks to make longer audio
