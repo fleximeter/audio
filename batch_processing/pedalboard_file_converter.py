@@ -25,10 +25,8 @@ ROOT = WINROOT
 if re.search(r'macos', PLATFORM, re.IGNORECASE):
     ROOT = MACROOT
 
-IN_DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "TenorTrombone")
-OUT_DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "TenorTrombone", "process")
-IN_DIR = "D:\\Recording\\Samples\\freesound\\creative_commons_0\\bell\\8916__wuola__medieval-bells"
-OUT_DIR = "D:\\Recording\\Samples\\freesound\\creative_commons_0\\bell\\8916__wuola__medieval-bells\\wav"
+IN_DIR = os.path.join(ROOT, "Recording", "Samples", "Iowa", "Piano")
+OUT_DIR = os.path.join(ROOT, "Recording", "Samples", "Iowa", "Piano", "converted")
 
 # Basic audio stuff
 LOWCUT_FREQ = 10
@@ -107,7 +105,7 @@ if __name__ == "__main__":
     # Start the converter processes
     num_processes = mp.cpu_count()
     num_files_per_process = len(audio_files) // num_processes + 1
-    processes = [mp.Process(target=file_converter_filter, args=(audio_files[num_files_per_process * i:num_files_per_process * (i + 1)],)) for i in range(num_processes)]
+    processes = [mp.Process(target=file_converter_resample_filter, args=(audio_files[num_files_per_process * i:num_files_per_process * (i + 1)],)) for i in range(num_processes)]
     for p in processes:
         p.start()
     for p in processes:

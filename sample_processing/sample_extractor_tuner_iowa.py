@@ -41,17 +41,16 @@ if re.search(r'macos', PLATFORM, re.IGNORECASE):
 ###################################################################################################
 # !! THINGS THAT MUST BE MANUALLY SET EACH TIME YOU RUN THIS PROGRAM !!
 ###################################################################################################
-DIR = os.path.join(ROOT, "Recording", "Compositions", "trombone_piece", "TenorTrombone")
-DYNAMIC = "pp"  # This is something specific to Iowa samples
+DIR = os.path.join(ROOT, "Recording", "Samples", "Iowa", "SopSax.NoVib")
+DYNAMIC = "ff"  # This is something specific to Iowa samples
 
 # 1. The minimum number of frames below the threshold for delimiting samples.
 MIN_FRAMES_BELOW_THRESHOLD = 11000
 
 # 2. The level at which a sample begins or ends. When the levels rise above here, we have another sample.
-SAMPLE_LEVEL_DBFS_DELIMITER = -350  
+SAMPLE_LEVEL_DBFS_DELIMITER = -50  
 
 # 3. The number of frames that will be included at the end of the sample. This helps to catch the tail
-# as it fades away. If this is too long, we might catch part of the next sample.
 POST_FRAMES_TO_INCLUDE = 1000
 
 # 4. If you want to automatically tune the sample, set this to True.
@@ -103,11 +102,10 @@ def extract_samples(audio_files, destination_directory):
             sample *= 10 ** (PEAK_DBFS_FOR_FINAL_SAMPLES / 20) / current_peak
             if AUTOTUNE_SAMPLE:
                 midi = librosa_tuning.midi_estimation_from_pitch(
-                    librosa_tuning.librosa_pitch_estimation(sample.samples, 44100, 27.5, 5000, 0.5)
+                    librosa_tuning.librosa_pitch_estimation(sample, 44100, 27.5, 5000, 0.5)
                 )
                 if not np.isnan(midi) and not np.isinf(midi) and not np.isneginf(midi):
-                    sample.samples = librosa_tuning.midi_tuner(sample.samples, midi, 1, 44100)
-                    sample.num_frames = sample.samples.shape[-1]
+                    sample = librosa_tuning.midi_tuner(sample, midi, 1, 44100)
                     midi = int(np.round(midi))
             with pb.io.AudioFile(os.path.join(destination_directory, f"{short_name}.{i+1}.wav"), 'w', audio.sample_rate, audio.num_channels, audio.bits_per_sample) as outfile:
                 outfile.write(sample)

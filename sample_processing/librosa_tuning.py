@@ -21,17 +21,14 @@ def librosa_pitch_estimation(audio, sample_rate=44100, min_freq=55, max_freq=880
     are calculated as an array of frequencies. Normally the median (0.5) is a good choice.
     :return: The pitch
     """
-    estimates = librosa.pyin(audio, fmin=min_freq, fmax=max_freq, sr=sample_rate)
-    nans = set()
-    for i in range(estimates[0].shape[-1]):
-        if np.isnan(estimates[0][i]) or np.isinf(estimates[0][i]) or np.isneginf(estimates[0][i]):
-            nans.add(i)
+    freq_estimates, voiced_flags, voiced_probs = librosa.pyin(audio, fmin=min_freq, fmax=max_freq, sr=sample_rate)
+    nans = np.isnan(freq_estimates[0]).sum()
+    
     # We arbitrarily decide that if half of the detected pitches are NaN, we will
     # be returning NaN
-    if estimates[0].shape[-1] // 2 > len(nans):
-        for i in nans:
-            estimates[0][i] = 0
-    return np.quantile(estimates[0], quantile)
+    if freq_estimates.size // 2 > nans:
+        freq_estimates[np.isnan(freq_estimates)] = 0
+    return np.quantile(freq_estimates, quantile)
 
 
 def midi_estimation_from_pitch(frequency):
@@ -41,7 +38,7 @@ def midi_estimation_from_pitch(frequency):
     :return: The midi note number (or NaN)
     """
     midi_est = 12 * np.log2(frequency / 440) + 69
-    if np.isnan(midi_est) or np.isneginf(midi_est) or np.isinf(midi_est):
+    if not np.isfinite(midi_est):
         midi_est = 0.0
     return midi_est
 
