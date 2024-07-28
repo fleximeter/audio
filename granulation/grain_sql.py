@@ -63,11 +63,12 @@ def realize_grains(grain_entries, source_dir):
     """
     audio = {}  # Holds the unique audio files that we are extracting grains from
     grains2 = []  # A list of grain dictionaries
-    for grain_tup in grain_entries:
-        grain = {FIELDS[i]: grain_tup[i] for i in range(len(grain_tup))}
+    # print("\n\nReading file batch!\n")
+    for grain in grain_entries:
         if grain["file"] not in audio:
             # print(grain["file"])
             audio_data = audiofile.read(find_path(grain["file"], source_dir))
+            # print("Reading", grain["file"])
             audio[grain["file"]] = audio_data.samples[0]
         grain["spectral_roll_off_50"] = round(grain["spectral_roll_off_50"], 2)
         grain["spectral_centroid"] = round(grain["spectral_centroid"], -1)
