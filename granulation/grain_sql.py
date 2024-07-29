@@ -89,3 +89,33 @@ def store_grains(grains, db, cursor):
     SQL = "INSERT INTO grains VALUES(NULL, " + "?, " * 20 + "?)"
     cursor.executemany(SQL, grains)
     db.commit()
+
+
+def update_grain_root(cursor: sqlite3.Cursor, root_dir: str, root_dir_path: str):
+    """
+    Updates the path of all grains with `root_dir` in their paths.
+    :param root_dir: The root directory
+    :param root_dir_path: The new path to this root directory
+    """
+    SQL = "SELECT id, file FROM grains WHERE file LIKE ? OR file LIKE ?;"
+    cursor.execute(SQL, (f"%{root_dir}/%", f"%{root_dir}\\%"))
+    records = cursor.fetchall()
+    newrecords = []
+    for record in records:
+        path = record[1].replace("\\", "/")
+        path = path.split(f"{root_dir}/")[1]
+        path = os.path.join(root_dir_path, path)
+        newrecords.append((path, record[0]))
+    print(f"Updating {len(records)} records")
+    SQL = "UPDATE grains SET file = ? WHERE id = ?;"
+    cursor.executemany(SQL, newrecords)
+
+
+if __name__ == "__main__":
+    DB = "D:\\grains.sqlite3"
+    ROOT = "granulation_public_domain"
+    NEWDIR = "D:/Recording/Samples/granulation"
+    db, cursor = connect_to_db(DB)
+    # update_grain_root(cursor, ROOT, NEWDIR)
+    db.commit()
+    db.close()
