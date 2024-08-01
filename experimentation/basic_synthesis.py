@@ -11,12 +11,15 @@ import os
 import platform
 import numpy as np
 
-OUT_MAC = "/Users/jmartin50/Recording"
-OUT_PC = "D:\\Recording"
+OUT_MAC = "/Users/jmartin50/recording/out"
+OUT_ARGON = "/Users/jmartin50/recording/out"
+OUT_PC = "D:\\recording"
 SYSTEM = platform.system()
 
 if SYSTEM == "Darwin":
     OUT = OUT_MAC
+elif SYSTEM == "Linux":
+    OUT = OUT_ARGON
 else:
     OUT = OUT_PC
 
