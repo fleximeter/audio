@@ -44,15 +44,31 @@ def find_path(database_path, parent_directory) -> str:
     :param parent_directory: The directory containing the file
     :return: The actual file path on this machine
     """
-    file_name = os.path.split(database_path)[-1]
-    for path, _, files in os.walk(parent_directory):
-        for file in files:
-            if file_name in file:
-                return os.path.join(path, file)
+    # Need to compensate for os.path.split() not working properly on paths for other platform
+    idx = len(database_path) - 1
+    while idx >= 0:
+        if database_path[idx] == "\\" or database_path[idx] == "/":
+            break
+        idx -= 1
+    if idx >= 0:
+        database_path = database_path[idx+1:]
+    # print(f"Trying to find file {database_path}")
+    if type(parent_directory) == list:
+        for dir in parent_directory:
+            for path, _, files in os.walk(dir):
+                for file in files:
+                    if database_path in file:
+                        return os.path.join(path, file)
+    elif type(parent_directory) == str:
+        for path, _, files in os.walk(parent_directory):
+            for file in files:
+                if database_path in file:
+                    return os.path.join(path, file)
+
     return ""
 
 
-def realize_grains(grain_entries, source_dir):
+def realize_grains(grain_entries: list, source_dir):
     """
     Extracts the corresponding grains from database records.
     :param grain_entries: The grain records to use
@@ -61,22 +77,34 @@ def realize_grains(grain_entries, source_dir):
     in when the granulation analysis was performed.
     :return: A list of audio grain dictionaries
     """
-    audio = {}  # Holds the unique audio files that we are extracting grains from
-    grains2 = []  # A list of grain dictionaries
-    # print("\n\nReading file batch!\n")
-    for grain in grain_entries:
-        if grain["file"] not in audio:
-            # print(grain["file"])
-            audio_data = audiofile.read(find_path(grain["file"], source_dir))
-            # print("Reading", grain["file"])
-            audio[grain["file"]] = audio_data.samples[0]
-        grain["spectral_roll_off_50"] = round(grain["spectral_roll_off_50"], 2)
-        grain["spectral_centroid"] = round(grain["spectral_centroid"], -1)
-        grain.update({"grain": audio[grain["file"]][grain["start_frame"]:grain["end_frame"]]})
-        # weed out grains with bad values
-        if not (np.isnan(grain["grain"]).any() or np.isinf(grain["grain"]).any() or np.isneginf(grain["grain"]).any()):
-            grains2.append(grain)
-    return grains2
+    # Group the grains by source file
+    grain_groups = {}
+    for i, grain in enumerate(grain_entries):
+        if grain["file"] not in grain_groups:
+            grain_groups[grain["file"]] = []
+        grain_groups[grain["file"]].append((i, grain))
+    
+    # A list of realized grain dictionaries
+    realized_grains = [0 for _ in range(len(grain_entries))]  
+
+    for audio_file, grain_list in grain_groups.items():
+        path = find_path(audio_file, source_dir)
+        if not os.path.exists(path):
+            print(f"Could not find path {path} for file {grain['file']}")
+            print(f"The source directory was {source_dir}")
+        else:
+            audio = audiofile.read(path)
+            for grain_tup in grain_list:
+                idx = grain_tup[0]
+                grain = grain_tup[1]
+                grain["spectral_roll_off_50"] = round(grain["spectral_roll_off_50"], 2)
+                grain["spectral_centroid"] = round(grain["spectral_centroid"], -1)
+                grain["grain"] = audio.samples[0][grain["start_frame"]:grain["end_frame"]]
+                if not (np.isnan(grain["grain"]).any() or np.isinf(grain["grain"]).any() or np.isneginf(grain["grain"]).any()):
+                    realized_grains[idx] = grain
+            del audio.samples
+                    
+    return realized_grains
 
 
 def store_grains(grains, db, cursor):

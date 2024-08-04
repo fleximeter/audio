@@ -336,30 +336,23 @@ def merge_crossfade(grains: list, merge_fraction: float = 0.5) -> np.ndarray:
     :return: The merged array of grains
     """
     audio = grains[0]
-    
-    # equal power crossfade
     for i in range(1, len(grains)):
-        overlap_len = int(min(grains[i-1].shape[-1] * merge_fraction, grains[i].shape[-1] * merge_fraction))
-        sin_arr = np.sin(np.arange(0, 1, 1/overlap_len) * np.pi / 2)
-        cos_arr = np.cos(np.arange(0, 1, 1/overlap_len) * np.pi / 2)
-        if audio.ndim == 2:
-            sin_arr = np.reshape(sin_arr, (1, sin_arr.shape[-1]))
-            cos_arr = np.reshape(cos_arr, (1, cos_arr.shape[-1]))
-            sin_arr = np.repeat(sin_arr, audio.shape[0], 0)
-            cos_arr = np.repeat(cos_arr, audio.shape[0], 0)
-            audio = np.hstack((
-                audio[:, :-overlap_len],
-                audio[:, -overlap_len:] * cos_arr + grains[i][:, :overlap_len] * sin_arr,
-                grains[i][:, overlap_len:]
-            ))
-        elif audio.ndim == 1:
-            audio = np.hstack((
-                audio[:-overlap_len],
-                audio[-overlap_len:] * cos_arr + grains[i][:overlap_len] * sin_arr,
-                grains[i][overlap_len:]
-            ))
-
+        audio = grain_tools.crossfade(audio, grains[i], merge_fraction)
     return audio
+
+
+def randomize_param(grains: list, param: str, rng: random.Random, max_deviation: int, only_positive: bool = False):
+    """
+    Randomizes a grain parameter
+    :param grains: A list of grain dictionaries
+    :param param: The key to randomize
+    :param rng: The random number generator to use
+    :param max_deviation: The maximum deviation allowed
+    :param only_positive: Whether or not only positive deviation is allowed
+    """
+    min_deviation = 0 if only_positive else -max_deviation
+    for grain in grains:
+        grain[param] += rng.randrange(min_deviation, max_deviation + 1)
 
 
 def swap_nth_adjacent_pair(grains: list, n: int):
@@ -374,28 +367,40 @@ def swap_nth_adjacent_pair(grains: list, n: int):
         grains[i] = temp
 
 
-def swap_nth_n_pair(grains: list, n: int):
+def swap_nth_m_pair(grains: list, n: int, m: int):
     """
     Swaps every n grain pairs of grains spaced n apart
     :param grains: A list of grains
     :param n: Every nth pair will be swapped
     """
-    for i in range(0, len(grains)-n, n):
-        temp = grains[i+n]
-        grains[i+n] = grains[i]
+    for i in range(0, len(grains)-m, n):
+        temp = grains[i+m]
+        grains[i+m] = grains[i]
         grains[i] = temp
 
 
 def swap_random_pair(grains: list, prob: float, rng: random.Random):
     """
     Randomly swaps adjacent grain pairs, based on the probability value provided.
+    If the grains list is a list of lists, the swap will take place with the next adjacent list,
+    mod the number of lists present.
     :param grains: A list of grains
     :param prob: The probability that any given pair of adjacent grains will be swapped
     :param rng: The random number generator to use
     """
-    for i in range(len(grains)-1):
-        swaps = rng.choices((True, False), weights=(prob, 1-prob), k=10)
-        if rng.choice(swaps):
-            temp = grains[i]
-            grains[i+1] = grains[i]
-            grains[i] = temp
+    if type(grains[0]) == list:
+        for i in range(len(grains)-1):
+            next_idx = (i + 1) % len(grains)
+            for j in range(len(grains[i])):
+                swaps = rng.choices((True, False), weights=(prob, 1-prob), k=10)
+                if rng.choice(swaps):
+                    temp = grains[next_idx][j]
+                    grains[next_idx][j] = grains[i]
+                    grains[i] = temp
+    else:
+        for i in range(len(grains)-1):
+            swaps = rng.choices((True, False), weights=(prob, 1-prob), k=10)
+            if rng.choice(swaps):
+                temp = grains[i]
+                grains[i+1] = grains[i]
+                grains[i] = temp
