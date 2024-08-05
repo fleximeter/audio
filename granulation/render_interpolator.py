@@ -67,6 +67,8 @@ def render(grain_entry_categories, num_unique_grains_per_section, num_repetition
         ButterworthFilterEffect(440, "lowpass", 2),
         ChorusEffect(2, 0.5, 20, 0.4, 0.5),
     ]
+
+    DB = -36
     
     rng = random.Random()
     rng.seed()
@@ -80,14 +82,13 @@ def render(grain_entry_categories, num_unique_grains_per_section, num_repetition
             idx = rng.randrange(0, len(entry_category))
             if "church-bell" not in entry_category[idx]["file"]:
                 grain_list.append(entry_category[idx])
-        grain_list = grain_sql.realize_grains(grain_list, source_dirs)
         # print(f"{len(grain_list)} grains added to the list")
         unique_grain_lists.append(grain_list)
     
     # Repeat the chunks to make longer audio
     repeated_grain_lists = []
     for j, unique_grain_list in enumerate(unique_grain_lists):
-        repeated_grain_list = grain_assembler.assemble_repeat(unique_grain_list, num_repetitions, overlap_num, -18.0, effect_chain, None)
+        repeated_grain_list = grain_assembler.assemble_repeat(unique_grain_list, num_repetitions, overlap_num)
         grain_assembler.swap_nth_m_pair(repeated_grain_list, 8, 44100 * 5)
         grain_assembler.swap_random_pair(repeated_grain_list, 0.1, rng)
 
@@ -106,19 +107,23 @@ def render(grain_entry_categories, num_unique_grains_per_section, num_repetition
     # print("Grains interpolated")
 
     grain_assembler.calculate_grain_positions(grains)
+    grain_sql.realize_grains(grains, source_dirs)
+    for grain in grains:
+        grain["grain"] = np.nan_to_num(grain["grain"])
+        grain["grain"] = operations.adjust_level(grain["grain"], DB)
     grain_audio = grain_assembler.merge(grains, num_channels, np.hanning)
-    grain_audio = operations.force_equal_energy(grain_audio, -3, 22050)
+    # grain_audio = operations.force_equal_energy(grain_audio, -3, 22050)
     
-    # print("Ready to apply effects")
+    # # print("Ready to apply effects")
 
-    # Apply final effects to the assembled audio
-    lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
-    hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
-    grain_audio = signal.sosfilt(lpf, grain_audio)
-    grain_audio = signal.sosfilt(hpf, grain_audio)
-    grain_audio = operations.fade_in(grain_audio, "hanning", 22050)
-    grain_audio = operations.fade_out(grain_audio, "hanning", 22050)
-    grain_audio = operations.adjust_level(grain_audio, -3)
+    # # Apply final effects to the assembled audio
+    # lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
+    # hpf = signal.butter(8, 100, btype="highpass", output="sos", fs=44100)
+    # grain_audio = signal.sosfilt(lpf, grain_audio)
+    # grain_audio = signal.sosfilt(hpf, grain_audio)
+    # grain_audio = operations.fade_in(grain_audio, "hanning", 22050)
+    # grain_audio = operations.fade_out(grain_audio, "hanning", 22050)
+    grain_audio = operations.adjust_level(grain_audio, -12)
 
     # print("Ready to write audio")
 
@@ -139,65 +144,79 @@ if __name__ == "__main__":
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
             AND (spectral_roll_off_75 BETWEEN 100 AND 200)
+            AND (energy > 0.05)
             AND (frequency IS NULL);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.1 AND 0.3) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 300);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 300)
+            AND (energy > 0.05);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
             AND (spectral_roll_off_75 BETWEEN 100 AND 200)
+            AND (energy > 0.05)
             AND (frequency IS NULL);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.1 AND 0.5) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 400);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 400)
+            AND (energy > 0.05);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
             AND (spectral_roll_off_75 BETWEEN 75 AND 500)
+            AND (energy > 0.05)
             AND (frequency IS NULL);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.1 AND 0.2) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 200);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 200)
+            AND (energy > 0.05);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
             AND (spectral_roll_off_75 BETWEEN 75 AND 600)
+            AND (energy > 0.05)
             AND (frequency IS NULL);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.2 AND 0.8) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 500);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 500)
+            AND (energy > 0.05);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
             AND (spectral_roll_off_75 BETWEEN 50 AND 800)
+            AND (energy > 0.05)
             AND (frequency IS NULL);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.5 AND 1.0) 
-            AND (spectral_roll_off_75 BETWEEN 100 AND 200);""",
+            AND (spectral_roll_off_75 BETWEEN 100 AND 200)
+            AND (energy > 0.05);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
             AND (spectral_roll_off_75 BETWEEN 50 AND 900)
+            AND (energy > 0.05)
             AND (frequency IS NULL);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.3 AND 0.7) 
-            AND (spectral_roll_off_75 BETWEEN 50 AND 1000);""",
+            AND (spectral_roll_off_75 BETWEEN 50 AND 1000)
+            AND (energy > 0.05);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.00 AND 0.05) 
             AND (spectral_roll_off_75 BETWEEN 50 AND 1100)
+            AND (energy > 0.05)
             AND (frequency IS NULL);""",
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
             AND (spectral_flatness BETWEEN 0.1 AND 0.4) 
-            AND (spectral_roll_off_75 BETWEEN 20 AND 1400);""",
+            AND (spectral_roll_off_75 BETWEEN 20 AND 1400)
+            AND (energy > 0.05);""",
     ]
 
     # EPSILON = 0.2

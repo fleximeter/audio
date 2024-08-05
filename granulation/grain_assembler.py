@@ -15,15 +15,12 @@ import random
 import grain_tools
 
 
-def assemble_repeat(grain, n: int, distance_between_grains: int, max_db: float = -18.0, effect_chain: list = None, effect_cycle: list = None) -> np.ndarray:
+def assemble_repeat(grain, n: int, distance_between_grains: int) -> np.ndarray:
     """
     Repeats a grain or list of grains for n times.
     :param grain: A grain dictionary or list of grains
     :param n: The number of times to repeat
     :param distance_between_grains: The distance between each grain, in frames. If negative, grains will overlap. If positive, there will be a gap between grains.
-    :param max_db: The db level of the final grains
-    :param effect_chain: A sequence (list) of effects that will be applied to each grain individually. If None, no effects will be applied.
-    :param effect_cycle: A cycle (list) of effects that will be applied to each grain in a repeating sequence. If None, no effects will be applied.
     :return: A list of grain tuples, specifying where each grain should go
     """
     if type(grain) == dict:
@@ -31,39 +28,14 @@ def assemble_repeat(grain, n: int, distance_between_grains: int, max_db: float =
     elif type(grain) == list:
         grains = grain * n
     
-    # Apply effects
-    if effect_chain is not None:
-        for effect in effect_chain:
-            grains[0]["grain"] = effect(grains[0]["grain"])
-    if effect_cycle is not None:
-        grains[0]["grain"] = effect_cycle[0](grains[0]["grain"])
+    for grain in grains:
+        grain["distance_between_grains"] = distance_between_grains
+        grain["channel"] = 0
 
-    # Add the grain to the audio sequence
-    grains[0]["grain"] = operations.adjust_level(grains[0]["grain"], max_db)
-    grain_pos_list = [{
-        "grain": grains[0]["grain"], 
-        "channel": 0,
-        "distance_between_grains": distance_between_grains
-    }]
-    
-    for i in range(1, len(grains)):
-        # Apply effects
-        if effect_chain is not None:
-            for effect in effect_chain:
-                grains[i]["grain"] = effect(grains[i]["grain"])
-        if effect_cycle is not None:
-            grains[i]["grain"] = effect_cycle[i % len(effect_cycle)](grains[i]["grain"])
-        grains[i]["grain"] = operations.adjust_level(grains[i]["grain"], max_db)
-        grain_pos_list.append({
-            "grain": grains[i]["grain"], 
-            "channel": 0,
-            "distance_between_grains": distance_between_grains
-            })
-
-    return grain_pos_list
+    return grains
 
 
-def assemble_single(grains: list, features: list, distance_between_grains: int, max_db: float = -18.0, effect_chain: list = None, effect_cycle: list = None) -> np.ndarray:
+def assemble_single(grains: list, features: list, distance_between_grains: int) -> np.ndarray:
     """
     Assembles grains. Each grain is only used once. 
     Grains are sorted by features provided in the `features` list: first by feature 0, then by feature 1, etc.
@@ -72,91 +44,37 @@ def assemble_single(grains: list, features: list, distance_between_grains: int, 
     :param grains: A list of grain dictionaries to choose from
     :param feature: The string name of the audio feature to use
     :param distance_between_grains: The distance between each grain, in frames. If negative, grains will overlap. If positive, there will be a gap between grains.
-    :param max_db: The db level of the final grains
-    :param effect_chain: A sequence (list) of effects that will be applied to each grain individually. If None, no effects will be applied.
-    :param effect_cycle: A cycle (list) of effects that will be applied to each grain in a repeating sequence. If None, no effects will be applied.
     :return: The assembled grains as an array
     """
     # Organize the grains
     for feature in features:
         grains = sorted(grains, key=lambda x: x[feature])
 
-    # Apply effects
-    if effect_chain is not None:
-        for effect in effect_chain:
-            grains[0]["grain"] = effect(grains[0]["grain"])
-    if effect_cycle is not None:
-        grains[0]["grain"] = effect_cycle[0](grains[0]["grain"])
-
-    # Add the grain to the audio sequence
-    grains[0]["grain"] = operations.adjust_level(grains[0]["grain"], max_db)
-    grain_pos_list = [{
-        "grain": grains[0]["grain"], 
-        "channel": 0,
-        "distance_between_grains": distance_between_grains
-    }]
-    for i in range(1, len(grains)):
-        # Apply effects
-        if effect_chain is not None:
-            for effect in effect_chain:
-                grains[i]["grain"] = effect(grains[i]["grain"])
-        if effect_cycle is not None:
-            grains[i]["grain"] = effect_cycle[i % len(effect_cycle)](grains[i]["grain"])
-        grains[i]["grain"] = operations.adjust_level(grains[i]["grain"], max_db)
-        grain_pos_list.append({
-            "grain": grains[i]["grain"], 
-            "channel": 0,
-            "distance_between_grains": distance_between_grains
-            })
+    for grain in grains:
+        grain["distance_between_grains"] = distance_between_grains
+        grain["channel"] = 0
     
-    return grain_pos_list
+    return grains
 
 
-def assemble_stochastic(grains: list, n: int, distance_between_grains: int, rng: random.Random, max_db: float =-18.0, effect_chain: list = None, effect_cycle: list = None) -> np.ndarray:
+def assemble_stochastic(grains: list, n: int, distance_between_grains: int, rng: random.Random) -> np.ndarray:
     """
     Assembles grains stochastically. Each grain is used n times.
     :param grains: A list of grain dictionaries to choose from
     :param n: The number of occurrences of each grain
     :param rng: A random number generator object
     :param distance_between_grains: The distance between each grain, in frames. If negative, grains will overlap. If positive, there will be a gap between grains.
-    :param max_db: The db level of the final grains
-    :param effect_chain: A sequence (list) of effects that will be applied to each grain individually. If None, no effects will be applied.
-    :param effect_cycle: A cycle (list) of effects that will be applied to each grain in a repeating sequence. If None, no effects will be applied.
     :return: The assembled grains as an array
     """
     grains = grains * n
     for i in range(n):
         rng.shuffle(grains)
 
-    # Apply effects
-    if effect_chain is not None:
-        for effect in effect_chain:
-            grains[0]["grain"] = effect(grains[0]["grain"])
-    if effect_cycle is not None:
-        grains[0]["grain"] = effect_cycle[0](grains[0]["grain"])
-
-    # Add the grain to the audio sequence
-    grains[0]["grain"] = operations.adjust_level(grains[0]["grain"], max_db)
-    grain_pos_list = [{
-        "grain": grains[0]["grain"], 
-        "channel": 0,
-        "distance_between_grains": distance_between_grains
-    }]
-    for i in range(1, len(grains)):
-        # Apply effects
-        if effect_chain is not None:
-            for effect in effect_chain:
-                grains[i]["grain"] = effect(grains[i]["grain"])
-        if effect_cycle is not None:
-            grains[i]["grain"] = effect_cycle[i % len(effect_cycle)](grains[i]["grain"])
-        grains[i]["grain"] = operations.adjust_level(grains[i]["grain"], max_db)
-        grain_pos_list.append({
-            "grain": grains[i]["grain"], 
-            "channel": 0,
-            "distance_between_grains": distance_between_grains
-            })
+    for grain in grains:
+        grain["distance_between_grains"] = distance_between_grains
+        grain["channel"] = 0
     
-    return grain_pos_list
+    return grains
 
 
 def calculate_grain_positions(grains: list):
@@ -168,12 +86,12 @@ def calculate_grain_positions(grains: list):
     the grains into an audio array.
     :param grains: A list of grain dictionaries
     """
-    end_idx = grains[0]["grain"].shape[-1]
+    end_idx = grains[0]["end_frame"] - grains[0]["start_frame"]
     grains[0]["start_idx"] = 0
     grains[0]["end_idx"] = end_idx
     for i in range(1, len(grains)):
         start_idx = end_idx + grains[i]["distance_between_grains"]
-        end_idx = start_idx + grains[i]["grain"].shape[-1]
+        end_idx = start_idx + grains[i]["end_frame"] - grains[i]["start_frame"]
         grains[i]["start_idx"] = start_idx
         grains[i]["end_idx"] = end_idx
 
