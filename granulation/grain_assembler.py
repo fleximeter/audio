@@ -15,7 +15,7 @@ import random
 import grain_tools
 
 
-def assemble_repeat(grain, n: int, distance_between_grains: int) -> np.ndarray:
+def assemble_repeat(grain, n: int, distance_between_grains: int) -> list:
     """
     Repeats a grain or list of grains for n times.
     :param grain: A grain dictionary or list of grains
@@ -23,10 +23,16 @@ def assemble_repeat(grain, n: int, distance_between_grains: int) -> np.ndarray:
     :param distance_between_grains: The distance between each grain, in frames. If negative, grains will overlap. If positive, there will be a gap between grains.
     :return: A list of grain tuples, specifying where each grain should go
     """
+    grains = []
+
+    # deep copy is necessary
     if type(grain) == dict:
-        grains = [grain] * n
+        for _ in range(n):
+            grains.append(grain.copy())
     elif type(grain) == list:
-        grains = grain * n
+        for _ in range(n):
+            for item in grain:
+                grains.append(item.copy())
     
     for grain in grains:
         grain["distance_between_grains"] = distance_between_grains
