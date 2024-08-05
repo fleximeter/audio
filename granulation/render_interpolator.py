@@ -42,72 +42,6 @@ else:
 print(f"Out directory: {OUT}\nSource directory: {SOURCE_DIRS}\nDatabase: {DB}")
 
 
-
-def force_equal_energy(audio: np.ndarray, dbfs: float = -6.0, window_size: int = 8192, max_scalar: float = 1e6):
-    """
-    Forces equal energy on a mono signal over time. For example, if a signal initially has high energy, 
-    and gets less energetic, this will adjust the energy level so that it does not decrease.
-    Better results come with using a larger window size, so the energy changes more gradually.
-    :param audio: The array of audio samples
-    :param dbfs: The target level of the entire signal, in dbfs
-    :param window_size: The window size to consider when detecting RMS energy
-    :param max_scalar: The maximum scalar to use in level adjustment. This is necessary
-    because some audio may have an extremely low maximum level, and the scalar required
-    to bring it up to the right level could result in computation problems. The computed
-    level scalar used in this function will be -max_scalar <= level <= max_scalar.
-    :return: An adjusted version of the signal
-    """
-    # i: cython.int
-    # j: cython.int
-    # k: cython.int
-    # idx: cython.int
-    # frame_idx: cython.int
-    if audio.ndim == 1:
-        raise Exception("The audio array must have two dimensions.")
-    num_channels = audio.shape[0]
-    output_audio_arr = np.empty(audio.shape)  # the new array we'll be returning
-    target_level = 10 ** (dbfs / 20)  # the target level, in float rather than dbfs
-    num_frames = int(np.ceil(audio.shape[-1] / window_size))  # the number of frames that we'll be analyzing
-    energy_levels = np.empty((num_channels, num_frames + 2))  # the energy level for each frame
-    
-    # find the energy levels
-    for i in range(num_channels):
-        idx = 1
-        for j in range(0, audio.shape[-1], window_size):
-            energy_levels[i, idx] = np.sqrt(np.average(np.square(audio[i, j:j+window_size])))
-            idx += 1
-        energy_levels[i, 0] = energy_levels[i, 1]
-        energy_levels[i, -1] = energy_levels[i, -2]
-
-    # do the first half frame
-    for i in range(num_channels):
-        scalar = target_level / energy_levels[i, 0]
-        scalar = max(-max_scalar, scalar)
-        scalar = min(max_scalar, scalar)
-        for j in range(0, window_size // 2):
-            output_audio_arr[i, j] = audio[i, j] * scalar
-    
-    # do adjacent half frames from 1 and 2, 2 and 3, etc.
-    for i in range(num_channels):
-        frame_idx = 1
-        for frame_start_idx in range(window_size // 2, audio.shape[-1], window_size):
-            slope = (energy_levels[i, frame_idx + 1] - energy_levels[i, frame_idx]) / window_size
-            y_int = energy_levels[i, frame_idx]
-            for sample_idx in range(frame_start_idx, min(frame_start_idx + window_size, audio.shape[-1])):
-                f = slope * (sample_idx - frame_start_idx) + y_int
-                scalar = 1/f
-                scalar = max(-max_scalar, scalar)
-                scalar = min(max_scalar, scalar)
-                output_audio_arr[i, sample_idx] = audio[i, sample_idx] * scalar
-            frame_idx += 1
-
-    audio_max = np.max(np.abs(output_audio_arr))
-    scalar = target_level / audio_max
-    scalar = max(-max_scalar, scalar)
-    scalar = min(max_scalar, scalar)
-    return output_audio_arr * scalar
-    
-
 def render(grain_entry_categories, num_unique_grains_per_section, num_repetitions, overlap_num, num_channels, source_dirs, out_dir, name):
     """
     Renders an audio file
@@ -123,7 +57,7 @@ def render(grain_entry_categories, num_unique_grains_per_section, num_repetition
     rng.seed()
     
     # Assemble the unique grain lists. There will be N lists, one for each SELECT statement.
-    unique_grain_lists = []
+    grain_source_lists = []
     for j, entry_category in enumerate(grain_entry_categories):
         grain_list = []
         # select NUM unique grains
@@ -135,25 +69,31 @@ def render(grain_entry_categories, num_unique_grains_per_section, num_repetition
                 grain["channel"] = 0
                 grain_list.append(grain)
         # print(f"{len(grain_list)} grains added to the list")
-        unique_grain_lists.append(grain_list)
+        grain_source_lists.append(grain_list)
     
-    grains = []
-    for l in unique_grain_lists:
-        bigger_list = grain_assembler.assemble_repeat(l, num_repetitions, overlap_num)
-        grains += bigger_list
+    assembled_grains_lists = []
+    num = 0
+    for l in grain_source_lists:
+        assembled_grains_lists.append(grain_assembler.assemble_repeat(l, num_repetitions, overlap_num))
+        num += len(assembled_grains_lists[-1])
 
     # Repeat the chunks to make longer audio
-    
+    grains = assembled_grains_lists[0]
+    for i in range(1, len(assembled_grains_lists)):
+        overlap_num = int(min(len(grains), len(assembled_grains_lists[i])) * 0.95)
+        grains = grains[:-overlap_num] + grain_assembler.interpolate(grains[-overlap_num:],
+                                              assembled_grains_lists[i][:overlap_num]) + assembled_grains_lists[i][overlap_num:]
+        
+    grain_assembler.swap_random_pair(grains, 0.2, rng)
+    grain_assembler.randomize_param(grains, "distance_between_grains", rng, 50)
+    grain_assembler.spread_across_channels(grains, num_channels)
     grain_assembler.calculate_grain_positions(grains)
-    grain_sql.realize_grains(grains, source_dirs)
+    grain_sql.read_grains_from_file(grains, source_dirs)
     for i in range(len(grains)):
         grains[i]["grain"] = operations.adjust_level(grains[i]["grain"], DB)
         
     grain_audio = grain_assembler.merge(grains, num_channels, np.hanning)
-    
-    grain_audio = force_equal_energy(grain_audio, -3, 22000)
-    
-    # # print("Ready to apply effects")
+    grain_audio = operations.force_equal_energy(grain_audio, -3, 22000)
 
     # Apply final effects to the assembled audio
     lpf = signal.butter(2, 500, btype="lowpass", output="sos", fs=44100)
@@ -164,19 +104,17 @@ def render(grain_entry_categories, num_unique_grains_per_section, num_repetition
     grain_audio = operations.fade_out(grain_audio, "hanning", 22050)
     grain_audio = operations.adjust_level(grain_audio, -12)
 
-    # print("Ready to write audio")
-
     # Write the audio
     audio = audiofile.AudioFile(sample_rate=44100, bits_per_sample=24, num_channels=num_channels)
     audio.samples = grain_audio
     path = os.path.join(out_dir, name)
     print(f"Writing file {path} with {audio.samples.shape[-1]} samples")
-    audiofile.write_with_pedalboard(audio, os.path.join(out_dir, "out1.wav"))
+    audiofile.write_with_pedalboard(audio, os.path.join(out_dir, name))
     # print("Done.")
 
 
 if __name__ == "__main__":
-    LENGTH = 8192
+    LENGTH = 4096
     SELECT = [
         f"""SELECT * FROM grains 
         WHERE (length = {LENGTH})
@@ -299,7 +237,7 @@ if __name__ == "__main__":
     NUM_AUDIO_CANDIDATES = 5
     NUM_CHANNELS = 2
     NUM_UNIQUE_GRAINS = 10
-    render(grain_entry_categories, NUM_UNIQUE_GRAINS, 200, -8100, NUM_CHANNELS, SOURCE_DIRS, OUT, "out_1.wav")
+    render(grain_entry_categories, NUM_UNIQUE_GRAINS, 200, -LENGTH + 75, NUM_CHANNELS, SOURCE_DIRS, OUT, "out_1.wav")
     # processes = [mp.Process(target=render, args=(grain_entry_categories, NUM_UNIQUE_GRAINS, 800, -4050, NUM_CHANNELS, SOURCE_DIRS, OUT, f"out_{i+1}.wav")) for i in range(NUM_AUDIO_CANDIDATES)]
     # for p in processes:
     #     p.start()

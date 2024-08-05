@@ -279,6 +279,16 @@ def randomize_param(grains: list, param: str, rng: random.Random, max_deviation:
         grain[param] += rng.randrange(min_deviation, max_deviation + 1)
 
 
+def spread_across_channels(grains: list, num_channels: int = 2):
+    """
+    Spreads grains across `num_channels` channels
+    :param grains: A list of grains
+    :param num_channels: The number of channels
+    """
+    for i in range(len(grains)):
+        grains[i]["channel"] = i % num_channels
+
+
 def swap_nth_adjacent_pair(grains: list, n: int):
     """
     Swaps every n adjacent grain pairs.

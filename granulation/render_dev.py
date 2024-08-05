@@ -103,7 +103,7 @@ if __name__ == "__main__":
     db, cursor = grain_sql.connect_to_db(DB_FILE)
     grain_categories = []
     for i, select in enumerate(SELECT):
-        category = grain_sql.realize_grains(cursor, select, SOURCE_DIR)
+        category = grain_sql.read_grains_from_file(cursor, select, SOURCE_DIR)
         if len(category) == 0:
             raise Exception(f"No grains found for index {i}.")
         grain_categories.append(category)

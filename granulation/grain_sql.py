@@ -68,7 +68,7 @@ def find_path(database_path, parent_directory) -> str:
     return ""
 
 
-def realize_grains(grain_entries: list, source_dir):
+def read_grains_from_file(grain_entries: list, source_dir):
     """
     Extracts the corresponding grains from database records.
     :param grain_entries: The grain records to use
