@@ -25,21 +25,19 @@ PC = "D:\\recording"
 SYSTEM = platform.system()
 
 if SYSTEM == "Darwin":
-    SOURCE_DIRS = os.path.join(MAC, "samples/granulation")
+    SOURCE_DIRS = os.path.join(MAC, "samples/granulation_chunks")
     OUT = os.path.join(MAC, "out")
-    DB = os.path.join(MAC, "grains.sqlite3")
+    DB = os.path.join(MAC, "data/grains.sqlite3")
     
 elif SYSTEM == "Linux":
-    SOURCE_DIRS = [os.path.join(ARGON, "samples/granulation"), os.path.join("/old_Users/jmartin50/recording", "samples/granulation")]
+    SOURCE_DIRS = [os.path.join(ARGON, "samples/granulation_chunks"), os.path.join("/old_Users/jmartin50/recording", "samples/granulation_chunks")]
     OUT = os.path.join(ARGON, "out")
-    DB = os.path.join(ARGON, "grains.sqlite3")
+    DB = os.path.join(ARGON, "data/grains.sqlite3")
 
 else:
-    SOURCE_DIRS = os.path.join(PC, "samples\\granulation")
+    SOURCE_DIRS = os.path.join(PC, "samples\\granulation_chunks")
     OUT = os.path.join(PC, "out")
-    DB = os.path.join(PC, "grains.sqlite3")
-
-print(f"Out directory: {OUT}\nSource directory: {SOURCE_DIRS}\nDatabase: {DB}")
+    DB = os.path.join(PC, "data/grains.sqlite3")
 
 
 def render(grain_entry_categories, num_unique_grains_per_section, num_repetitions, overlap_num, num_channels, source_dirs, out_dir, name):
@@ -195,26 +193,6 @@ if __name__ == "__main__":
             AND (energy > 0.05);""",
     ]
 
-    # EPSILON = 0.2
-    # SELECT = [
-    #     f"""SELECT * FROM grains 
-    #         WHERE (length = 8192)
-    #         AND (spectral_flatness BETWEEN 0.00 AND 0.05)
-    #         AND (midi BETWEEN {69-EPSILON} AND {69 + EPSILON});""",
-    #     f"""SELECT * FROM grains 
-    #         WHERE (length = 8192)
-    #         AND (spectral_flatness BETWEEN 0.00 AND 0.05)
-    #         AND (midi BETWEEN {62-EPSILON} AND {62 + EPSILON});""",
-    #     f"""SELECT * FROM grains 
-    #         WHERE (length = 8192)
-    #         AND (spectral_flatness BETWEEN 0.00 AND 0.05)
-    #         AND (midi BETWEEN {64-EPSILON} AND {64 + EPSILON});""",
-    #     f"""SELECT * FROM grains 
-    #         WHERE (length = 8192)
-    #         AND (spectral_flatness BETWEEN 0.00 AND 0.05)
-    #         AND (midi BETWEEN {67-EPSILON} AND {67 + EPSILON});""",
-    #     ]
-
     print("Retrieving grains...")
     # Retrieve grain metadata and grains
     db, cursor = grain_sql.connect_to_db(DB)
@@ -231,18 +209,18 @@ if __name__ == "__main__":
 
     db.close()
     start = datetime.now()
-    print("Found grains")
+    print("Rendering...")
 
     # Generate candidate audio
     NUM_AUDIO_CANDIDATES = 5
     NUM_CHANNELS = 2
     NUM_UNIQUE_GRAINS = 10
-    render(grain_entry_categories, NUM_UNIQUE_GRAINS, 200, -LENGTH + 75, NUM_CHANNELS, SOURCE_DIRS, OUT, "out_1.wav")
-    # processes = [mp.Process(target=render, args=(grain_entry_categories, NUM_UNIQUE_GRAINS, 800, -4050, NUM_CHANNELS, SOURCE_DIRS, OUT, f"out_{i+1}.wav")) for i in range(NUM_AUDIO_CANDIDATES)]
-    # for p in processes:
-    #     p.start()
-    # for p in processes:
-    #     p.join()
+    # render(grain_entry_categories, NUM_UNIQUE_GRAINS, 200, -LENGTH + 75, NUM_CHANNELS, SOURCE_DIRS, OUT, "out_1.wav")
+    processes = [mp.Process(target=render, args=(grain_entry_categories, NUM_UNIQUE_GRAINS, 200, -LENGTH + 75, NUM_CHANNELS, SOURCE_DIRS, OUT, f"out_{i+1}.wav")) for i in range(NUM_AUDIO_CANDIDATES)]
+    for p in processes:
+        p.start()
+    for p in processes:
+        p.join()
     duration = datetime.now() - start
-    print("Elapsed time: {}:{:2}".format(duration.seconds // 60, duration.seconds % 60))
+    print("Elapsed time: {}:{:0>2}".format(duration.seconds // 60, duration.seconds % 60))
     
