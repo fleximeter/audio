@@ -14,7 +14,7 @@ if __name__ == "__main__":
     # Also, make sure that the files are named in order that you want their channels.
     # You can number them, or use any scheme, as long as they will be ordered properly after sorting.
     # And make sure all audio files have the same sample rate.
-    DIR = "D:\\Recording\\Temp"
+    DIR = "/Users/jmartin50/Documents/REAPER Media/grain3/out"
 
     # Set the output file name here
     OUT = os.path.join(DIR, "out.wav")
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     files = audiofile.find_files(DIR)
     files.sort()
     audiofiles = [audiofile.read(file) for file in files]
-    samples = [f.samples for f in audiofile]
+    samples = [f.samples for f in audiofiles]
     max_len = 0
     for i in range(len(samples)):
         if samples[i].shape[-1] > max_len:
@@ -32,6 +32,7 @@ if __name__ == "__main__":
             shape = list(samples[i].shape)
             shape[-1] = max_len - shape[-1]
             samples[i] = np.hstack((samples[i], np.zeros(shape, dtype=samples[i].dtype)))
+    samples = [samples[i] + samples[8+i] for i in range(8)]
     samples = np.vstack(samples)
     newfile = audiofile.AudioFile(bits_per_sample=24, num_channels=samples.shape[0], sample_rate=audiofiles[0].sample_rate)
     newfile.samples = samples
