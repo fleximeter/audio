@@ -24,7 +24,7 @@ def mel_to_freq(mel: float) -> float:
     """
     return 700 * (10 ** (mel / 2595) - 1)
 
-def compute_filterbanks(lower_mel: float, upper_mel: float, num_filters) -> list:
+def compute_filterbank_indices(lower_mel: float, upper_mel: float, num_filters) -> list:
     """
     Computes Mel filterbanks (http://practicalcryptography.com/miscellaneous/machine-learning/guide-mel-frequency-cepstral-coefficients-mfccs/)
     also adapted version (https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html)
@@ -41,7 +41,7 @@ def compute_filterbanks(lower_mel: float, upper_mel: float, num_filters) -> list
         freq_tuples.append((freq_points[i], freq_points[i+1], freq_points[i+2]))
     return freq_tuples
 
-def round_filterbanks(mel_filterbanks, fft_freqs) -> list:
+def round_filterbank_indices(mel_filterbanks, fft_freqs) -> list:
     """
     Rounds Mel filterbanks to the closest FFT bin number
     :param mel_filterbanks: Mel filterbanks (specifying frequency, not mels)
@@ -52,6 +52,25 @@ def round_filterbanks(mel_filterbanks, fft_freqs) -> list:
     for filterbank in mel_filterbanks:
         rounded_filterbanks.append((ordered_list_search(fft_freqs, filterbank[0]), ordered_list_search(fft_freqs, filterbank[1]), ordered_list_search(fft_freqs, filterbank[2])))
     return rounded_filterbanks
+
+def realize_filterbanks(rounded_filterbanks, fft_size) -> list:
+    """
+    Realizes the filterbanks. Each filterbank is computed as a NumPy array.
+    We can then implement the filter by taking the dot product of the filterbank and the FFT spectrum.
+    :param rounded_filterbanks: The rounded filterbanks
+    :param fft_size: The FFT size
+    :return: A list of implemented filterbanks
+    """
+    implemented_filterbanks = []
+    for fb in rounded_filterbanks:
+        fb_implemented = np.zeros((fft_size // 2 + 1), dtype=np.float64)
+        fb_implemented[fb[1]] = 1
+        for k in range(fb[0], fb[1]):
+            fb_implemented[k] = (k - fb[0]) / (fb[1] - fb[0])
+        for k in range(fb[1]+1, fb[2]):
+            fb_implemented[k] = (fb[2] - k) / (fb[2] - fb[1])
+        implemented_filterbanks.append(fb_implemented)
+    return implemented_filterbanks
 
 def ordered_list_search(searchlist: list, target) -> int:
     """
@@ -103,9 +122,10 @@ if __name__ == "__main__":
     FFT_SIZE = 2048
     freqs = scipy.fft.rfftfreq(FFT_SIZE, 1/44100)
     y = [0, 1, 0]
-    filterbanks = compute_filterbanks(MEL_LOWER, MEL_UPPER, NUM_FILTERS)
-    filterbanks2 = round_filterbanks(filterbanks, freqs)
+    filterbanks = compute_filterbank_indices(MEL_LOWER, MEL_UPPER, NUM_FILTERS)
+    filterbanks2 = round_filterbank_indices(filterbanks, freqs)
+    filterbanks3 = realize_filterbanks(filterbanks2, FFT_SIZE)
     for i in range(NUM_FILTERS):
-        plt.plot(filterbanks2[i], y)
+        plt.plot(filterbanks3[i])
     plt.show()
     
