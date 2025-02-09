@@ -8,22 +8,23 @@ from matplotlib import pyplot as plt
 import numpy as np
 from aus import synthesis
 
-def generate_times(sample_rate, num_samples):
+def plot_signal(sig, sample_rate, x_axis="time"):
     """
-    Generates the xlabels for time, given sample rate and number of samples
+    Plots a signal
+    :param sig: The signal to plot (as a numpy array)
     :param sample_rate: The sample rate
-    :param num_samples: The number of samples
-    :return: The time array
+    :param x_axis ("time" or "samples"): Whether the x-axis should be "time" or "samples"
     """
-    return np.arange(0, sample_rate / num_samples, 1 / sample_rate)
-
-def plot_signal(sig, sample_rate):
     fig, ax = plt.subplots()
-    ax.plot(sig)
-    ax.set_xticks([i for i in range(2000)], generate_times(sample_rate, 2000))
-    ax.set_xlabel("Sample Index")
+    times = np.linspace(0, sig.shape[-1] / sample_rate, sig.shape[-1])
+    if x_axis == "time":
+        ax.plot(times, sig)
+        ax.set_xlabel("Times (sec.)")
+    else:
+        ax.plot(sig)
+        ax.set_xlabel("Samples")
     ax.set_ylabel("Amplitude")
     plt.show()
 
 sig = synthesis.saw(10, 40, 2000, 10000)
-plot_signal(sig)
+plot_signal(sig, 10000, "samples")
