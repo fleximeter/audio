@@ -54,7 +54,7 @@ def am(carrier_freq: float, modulator_freqs: list, modulator_amps: list, length:
     for i in range(len(modulator_freqs)):
         step = 2 * np.pi * modulator_freqs[i] / sample_rate
         stop = length * step
-        modulator = np.sin(np.arange(0, stop, step)) * modulator_amps[i]
+        modulator = np.sin(np.arange(0, stop, step)) * (modulator_amps[i] / 2) + modulator_amps[i]
         if am_sig.shape[-1] > length:
             am_sig = am_sig[:length]
         elif am_sig.shape[-1] < length:
@@ -101,6 +101,41 @@ def fm(carrier_freq: float, modulator_freqs: list, modulator_depths: list, lengt
         fm_sig = np.hstack((fm_sig, zeros))
 
     return fm_sig
+
+
+def ringmod(carrier_freq: float, modulator_freqs: list, modulator_amps: list, length: int, sample_rate: int) -> np.ndarray:
+    """
+    Makes a ring-modulated signal
+    :param carrier_freq: The carrier frequency
+    :param modulator_freqs: The modulator frequencies (as a list)
+    :param modulator_amps: The modulator amplitudes (as a list)
+    :param len: The length of the signal
+    :param sample_rate: The sample rate of the signal
+    :return: The signal (as a numpy array)
+    """
+    # Write the signal array
+    step = 2 * np.pi * carrier_freq / sample_rate
+    stop = length * step
+    ringmod_sig = np.sin(np.arange(0, stop, step))
+    if ringmod_sig.shape[-1] > length:
+        ringmod_sig = ringmod_sig[:length]
+    elif ringmod_sig.shape[-1] < length:
+        zeros = np.zeros((length - ringmod_sig.shape[-1]))
+        ringmod_sig = np.hstack((ringmod_sig, zeros))
+
+    # Modulate the signal
+    for i in range(len(modulator_freqs)):
+        step = 2 * np.pi * modulator_freqs[i] / sample_rate
+        stop = length * step
+        modulator = np.sin(np.arange(0, stop, step)) * modulator_amps[i]
+        if ringmod_sig.shape[-1] > length:
+            ringmod_sig = ringmod_sig[:length]
+        elif ringmod_sig.shape[-1] < length:
+            zeros = np.zeros((length - ringmod_sig.shape[-1]))
+            ringmod_sig = np.hstack((ringmod_sig, zeros))
+        ringmod_sig *= modulator
+    
+    return ringmod_sig
 
 
 def saw(freq: float, max_harmonic: int, length: int, sample_rate: int = 44100):
