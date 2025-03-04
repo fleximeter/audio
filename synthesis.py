@@ -28,7 +28,9 @@ def freqshift(sig: np.ndarray, freq: float, sample_rate: int):
     :param sig: The signal to shift
     :param freq: The frequency to shift by
     """
-
+    modulator = complex_sinusoid(freq, sig.shape[-1], sample_rate)
+    ringmod_sig = sig * modulator
+    return np.real(ringmod_sig)
     
 def am(carrier_freq: float, modulator_freqs: list, modulator_amps: list, length: int, sample_rate: int) -> np.ndarray:
     """
