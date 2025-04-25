@@ -39,6 +39,8 @@ def plot_signal(sig, sample_rate, **kwargs):
         matplotlib.rcParams['font.serif'] = kwargs["font_serif"]
     if "font_size" in kwargs:
         matplotlib.rcParams['font.size'] = kwargs["font_size"]
+    if "linewidth" not in kwargs:
+        kwargs["linewidth"] = 1
     if "show_plot" not in kwargs:
         kwargs["show_plot"] = True
     if "x_axis" not in kwargs:
@@ -46,12 +48,13 @@ def plot_signal(sig, sample_rate, **kwargs):
     fig, ax = plt.subplots(figsize=kwargs["figsize"])
     times = np.linspace(0, sig.shape[-1] / sample_rate, sig.shape[-1])
     if kwargs["x_axis"] == "time":
-        ax.plot(times, sig, linewidth=1, color=kwargs["color"])
+        ax.plot(times, sig, linewidth=kwargs["linewidth"], color=kwargs["color"])
         ax.set_xlabel("Times (sec.)")
     else:
-        ax.plot(sig, linewidth=1, color=kwargs["color"])
+        ax.plot(sig, linewidth=kwargs["linewidth"], color=kwargs["color"])
         ax.set_xlabel("Samples")
     ax.set_ylabel("Amplitude")
+    fig.tight_layout()
     if kwargs["filename"] is not None:
         plt.savefig(kwargs["filename"], dpi=kwargs["dpi"])
     if kwargs["show_plot"]:
@@ -86,6 +89,8 @@ def plot_spectrum(spectrum, fft_size, sample_rate, **kwargs):
         matplotlib.rcParams['font.size'] = kwargs["font_size"]
     if "frequency_range" not in kwargs:
         kwargs["frequency_range"] = None
+    if "linewidth" not in kwargs:
+        kwargs["linewidth"] = 1
     if "show_plot" not in kwargs:
         kwargs["show_plot"] = True
     fig, ax = plt.subplots(figsize=kwargs["figsize"])
@@ -100,12 +105,13 @@ def plot_spectrum(spectrum, fft_size, sample_rate, **kwargs):
             if kwargs["frequency_range"][0] <= freqs[i] <= kwargs["frequency_range"][1]:
                 new_freqs.append(freqs[i])
                 new_power_spectrum.append(power[i])
-        ax.plot(new_freqs, new_power_spectrum, linewidth=1, color=kwargs["color"])
+        ax.plot(new_freqs, new_power_spectrum, linewidth=kwargs["linewidth"], color=kwargs["color"])
     else:
-        ax.plot(freqs, power, linewidth=1, color=kwargs["color"])
+        ax.plot(freqs, power, linewidth=kwargs["linewidth"], color=kwargs["color"])
     # ax.set_title(f"Spectrum")
     ax.set_xlabel("Frequency (Hz)")
     ax.set_ylabel("Amplitude (dB)")
+    fig.tight_layout()
     if kwargs["filename"] is not None:
         plt.savefig(kwargs["filename"], dpi=kwargs["dpi"])
     if kwargs["show_plot"]:
