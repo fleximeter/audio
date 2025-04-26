@@ -4,15 +4,17 @@ File: dev.py
 This file is for experimenting.
 """
 
-from scipy.fft import rfft, rfftfreq
+from scipy.fft import rfft, rfftfreq, dct
+from scipy.signal import ShortTimeFFT
 import numpy as np
 from matplotlib import pyplot as plt
-from aus import audiofile
+from aus import audiofile, plot
+import librosa
 
 FFT_SIZE = 1024
 AUDIO = "D:/Recording/compress.wav"
 WINDOW = np.hamming(FFT_SIZE)
-NUM_FILTERS = 10
+NUM_FILTERS = 20
 
 def binsearch(arr, target) -> int:
     """
@@ -94,7 +96,7 @@ class Triangle:
     """
     Represents a function for computing a triangular filterbank
     """
-    def __init__(self, start_pos, middle_pos, end_pos, low_val, high_val):
+    def __init__(self, start_pos: int, middle_pos: int, end_pos: int, low_val: float, high_val: float):
         """
         Makes a Triangle function
         :param start_pos: The start X position of the triangle
@@ -124,7 +126,7 @@ class MelFilter:
     """
     Represents a single triangular Mel filter and associated information.
     """
-    def __init__(self, fft_freqs, start_idx, end_idx, triangle_filter, normalize=True):
+    def __init__(self, fft_freqs: np.ndarray, start_idx: int, end_idx: int, triangle_filter: np.ndarray, normalize=True):
         """
         Makes a new Mel filter.
         :param fft_freqs: An array of FFT frequencies
@@ -140,11 +142,35 @@ class MelFilter:
         self.triangle_filter = triangle_filter
         if normalize:
             coef = 2 / (fft_freqs[end_idx] - fft_freqs[start_idx])
-            print(coef)
             self.triangle_filter *= coef
+
+
+class MelFilterbank:
+    """
+    Represents a Mel filterbank
+    """
+    def __init__(self, fft_freqs: np.ndarray, filters: list):
+        """
+        Creates a new Mel filterbank.
+        :param fft_freqs: An array of FFT frequencies
+        :param filters: A list of filters
+        """
+        self.fft_freqs = fft_freqs
+        self.filters = filters
+        self.num_filters = len(filters)
+    
+    def __call__(self, spectrum: np.ndarray) -> np.ndarray:
+        """
+        Applies the Mel filterbank
+        :param spectrum: The spectrum to filter
+        """
+        filt_spec = []
+        for i in range(len(self.filters)):
+            filt_spec.append(np.dot(self.filters[i].triangle_filter, spectrum))
+        return np.array(filt_spec)
             
 
-def filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> np.ndarray:
+def make_filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> MelFilterbank:
     """
     Generates a Mel filterbank
     :param mel_start: The lowest Mel for the filterbank
@@ -152,6 +178,7 @@ def filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> np.
     :param num_filters: The number of filters in the filterbank
     :param fft_freqs: The FFT frequencies
     :param quantize: Whether or not to quantize the filterbank to the nearest FFT frequency
+    :return: A `MelFilterbank`
     """
     # the array size is 2 larger because of endpoints 
     mel_center_freqs = np.linspace(mel_start, mel_end, num_filters+2)
@@ -162,6 +189,7 @@ def filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> np.
     filterbank = []
     # make each filter
     for i in range(1, num_filters+1):
+        # Make the triangle generating function
         if quantize:
             low_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i-1])]
             mid_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i])]
@@ -177,18 +205,56 @@ def filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> np.
         adjusted_end_idx = min(end_idx + 2, fft_freqs.size)
         for i in range(start_idx, adjusted_end_idx):
             tri_filter[i] = tri(fft_freqs[i])
-            mel_tri_filter = MelFilter(fft_freqs, start_idx, adjusted_end_idx, tri_filter, False)
+        mel_tri_filter = MelFilter(fft_freqs, start_idx, adjusted_end_idx, tri_filter, True)
         filterbank.append(mel_tri_filter)
+    filterbank = MelFilterbank(fft_freqs, filterbank)
     return filterbank
 
+def make_mel_spectrum(fb: MelFilterbank, spectrogram: np.ndarray) -> np.ndarray:
+    """
+    Makes a Mel spectrum
+    :param fb: The filterbank
+    :param spectrogram: The power spectrogram
+    :return: The Mel spectrum
+    """
+    mspec = []
+    for i in range(spectrogram.shape[-1]):
+        mspec.append(fb(spectrogram[:, i]))
+    mspec = np.array(mspec)
+    mspec = np.swapaxes(mspec, 0, 1)
+    return mspec
+
+
+def plot_filterbank(fb: MelFilterbank, fft_freqs):
+    """
+    Plots a Mel filterbank
+    :param fb: The filterbank
+    :param fft_freqs: The FFT frequencies
+    """
+    for i in range(len(fb.filters)):
+        plt.plot(fft_freqs, fb.filters[i].triangle_filter)
+    plt.xlabel("Frequency (Hz)")
+    plt.ylabel("Amplitude")
+    plt.title("Mel Filterbank")
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     af = audiofile.read(AUDIO)
-    chunk = af.samples[0, 44100:44100+FFT_SIZE] * WINDOW
-    mag_spec = np.abs(rfft(chunk))
-    pow_spec = np.square(mag_spec)
+    stft_ = ShortTimeFFT(np.hamming(FFT_SIZE), FFT_SIZE // 2, af.sample_rate)
     rfreqs = rfftfreq(FFT_SIZE, 1/af.sample_rate)
-    fb = filterbank(mel(64), mel(8000), NUM_FILTERS, rfreqs)    
-    for i in range(NUM_FILTERS):
-        plt.plot(fb[i].triangle_filter)
-    plt.show()
+    fb = make_filterbank(mel(64), mel(8000), NUM_FILTERS, rfreqs)
+    ispec = stft_.stft(af.samples[0, :])
+    pspec = np.square(np.abs(ispec))
+    mel_specgram = make_mel_spectrum(fb, pspec)
+    print(mel_specgram.shape)
+    
+
+    # chunk = af.samples[0, 44100:44100+FFT_SIZE] * WINDOW
+    # mag_spec = np.abs(rfft(chunk))
+    # pow_spec = np.square(mag_spec)
+    # filt_spec = fb(pow_spec)
+    # mfccs = dct(filt_spec, 3)
+    # plt.plot(mfccs)
+    # plt.show()
+    # plot_filterbank(fb, rfreqs)
