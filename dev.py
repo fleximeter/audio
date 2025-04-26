@@ -118,6 +118,30 @@ class Triangle:
             return self.ascending_slope * (value - self.start_pos) + self.low_val
         else:
             return self.descending_slope * (value - self.middle_pos) + self.high_val
+        
+
+class MelFilter:
+    """
+    Represents a single triangular Mel filter and associated information.
+    """
+    def __init__(self, fft_freqs, start_idx, end_idx, triangle_filter, normalize=True):
+        """
+        Makes a new Mel filter.
+        :param fft_freqs: An array of FFT frequencies
+        :param start_idx: The start index in `fft_freqs` for this filter
+        :param end_idx: The end index in `fft_freqs` for this filter
+        :param triangle_filter: The pre-computed triangular filter
+        :param normalize: Whether or not to normalize by filter width (default `True`).
+        This function applies librosa-style normalization (2 / filter width)
+        """
+        self.fft_freqs = fft_freqs  # store a reference to the FFT frequencies array
+        self.start_idx = start_idx  # we don't need to compute before the start index
+        self.end_idx = end_idx      # we don't need to compute after the end index
+        self.triangle_filter = triangle_filter
+        if normalize:
+            coef = 2 / (fft_freqs[end_idx] - fft_freqs[start_idx])
+            print(coef)
+            self.triangle_filter *= coef
             
 
 def filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> np.ndarray:
@@ -145,14 +169,16 @@ def filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> np.
             tri = Triangle(low_freq, mid_freq, high_freq, 0, 1)
         else:
             tri = Triangle(freq_center_freqs[i-1], freq_center_freqs[i], freq_center_freqs[i+1], 0, 1)
-        filter = np.zeros((fft_freqs.size))
+        tri_filter = np.zeros((fft_freqs.size))
 
         # we don't have to update each value in the array of zeros
         start_idx = binsearch_le(fft_freqs, freq_center_freqs[i-1])
         end_idx = binsearch_le(fft_freqs, freq_center_freqs[i+1])
-        for i in range(start_idx, min(end_idx + 2, fft_freqs.size)):
-            filter[i] = tri(fft_freqs[i])
-        filterbank.append(filter)
+        adjusted_end_idx = min(end_idx + 2, fft_freqs.size)
+        for i in range(start_idx, adjusted_end_idx):
+            tri_filter[i] = tri(fft_freqs[i])
+            mel_tri_filter = MelFilter(fft_freqs, start_idx, adjusted_end_idx, tri_filter, False)
+        filterbank.append(mel_tri_filter)
     return filterbank
 
 
@@ -164,5 +190,5 @@ if __name__ == "__main__":
     rfreqs = rfftfreq(FFT_SIZE, 1/af.sample_rate)
     fb = filterbank(mel(64), mel(8000), NUM_FILTERS, rfreqs)    
     for i in range(NUM_FILTERS):
-        plt.plot(fb[i])
+        plt.plot(fb[i].triangle_filter)
     plt.show()
