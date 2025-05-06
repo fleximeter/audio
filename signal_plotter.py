@@ -118,6 +118,59 @@ def plot_spectrum(spectrum, fft_size, sample_rate, **kwargs):
         plt.show()
 
 
+def plot_spectrogram(spectrogram, fft_size=None, hop_size=None, sample_rate=None, mode=None, **kwargs):
+    """
+    Plots a STFT spectrogram. The SFFT data should be in magnitude or power form.
+    :param spectrogram: A magnitude or power spectrogram to plot
+    :param fft_size: The FFT size used for the spectrogram
+    :param hop_size: The FFT hop size used for the spectrogram
+    :param sample_rate: The sample rate (for determining frequencies)
+    :param mode: The spectrogram mode (`None` just plots the raw data, `log` produces a normalized log spectrogram)
+    :param kwargs: Optional arguments
+    (dpi: (a, b), filename: {None, "path"}, x_axis: {"time", "samples"})
+    """
+    if "color" not in kwargs:
+        kwargs["color"] = "blue"
+    if "dpi" not in kwargs:
+        kwargs["dpi"] = 300
+    if "figsize" not in kwargs:
+        kwargs["figsize"] = (8, 6)
+    if "filename" not in kwargs:
+        kwargs["filename"] = None
+    if "font_family" in kwargs:
+        matplotlib.rcParams['font.family'] = kwargs["font_family"]
+    if "font_sans_serif" in kwargs:
+        matplotlib.rcParams['font.sans-serif'] = kwargs["font_sans_serif"]
+    if "font_serif" in kwargs:
+        matplotlib.rcParams['font.serif'] = kwargs["font_serif"]
+    if "font_size" in kwargs:
+        matplotlib.rcParams['font.size'] = kwargs["font_size"]
+    if "frequency_range" not in kwargs:
+        kwargs["frequency_range"] = None
+    if "linewidth" not in kwargs:
+        kwargs["linewidth"] = 1
+    if "show_plot" not in kwargs:
+        kwargs["show_plot"] = True
+
+    fig, ax = plt.subplots(figsize=kwargs["figsize"])    
+    if mode == "log":
+        spectrogram = 20 * np.log10(np.abs(spectrogram)/np.max(np.abs(spectrogram)))
+
+    ax.imshow(spectrogram, origin="lower")
+    # xtick_vals = np.arange(step, step * spectrogram.shape[-1], step)
+    # xtick_labels = []
+    # for val in xtick_vals:
+    #     if 
+    # ax.set_xticks(np.arange(spectrogram.shape[-1]), np.arange(step, step * spectrogram.shape[-1], step))
+    # ax.set_title(f"Spectrum")
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Amplitude (dB)")
+    fig.tight_layout()
+    if kwargs["filename"] is not None:
+        plt.savefig(kwargs["filename"], dpi=kwargs["dpi"])
+    if kwargs["show_plot"]:
+        plt.show()
+
 if __name__ == "__main__":
     # sig = synthesis.sine(100, 0, 201, 10000)
     # sig = synthesis.saw(100, 40, 10000, 10000)

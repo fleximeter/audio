@@ -10,11 +10,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 from aus import audiofile, plot
 import librosa
+import signal_plotter
 
 FFT_SIZE = 1024
 AUDIO = "D:/Recording/compress.wav"
 WINDOW = np.hamming(FFT_SIZE)
-NUM_FILTERS = 20
 
 def binsearch(arr, target) -> int:
     """
@@ -75,22 +75,56 @@ def binsearch_le(arr, target) -> int:
                 low_idx = mid_idx
             mid_idx = low_idx + (high_idx - low_idx) // 2
 
-
-def freq(mel) -> float:
+def freq(mel, htk=False):
     """
     Converts a mel to a frequency
     :param mel: The mel
+    :param HTK: If true, use the HTK formula (mel = 2595 * log10(1+freq/700)). Otherwise use the Slaney piecewise formula.
     :return: The frequency
     """
-    return 700 * (10 ** (mel/2595) - 1)
+    if htk:
+        return 700 * (np.power(10, mel / 2595) - 1)
+    else:
+        # A frequency of 1000 corresponds to a mel of 15 in the Slaney formula
+        if type(mel) == np.ndarray:
+            freqs = np.zeros(mel.shape)
+            for i in range(mel.shape[-1]):
+                if mel[i] < 15:
+                    freqs[i] = (200 / 3) * mel[i]
+                else:
+                    freqs[i] = 15 + 27 * (np.log(mel[i]/1000) / np.log(6.4))
+            return freqs
+        else:
+            if mel < 15:
+                return (200 / 3) * mel
+            else:
+                return 15 + 27 * (np.log(mel/1000) / np.log(6.4))
 
-def mel(freq) -> float:
+def mel(freq, htk=False):
     """
     Converts a frequency to a mel
     :param freq: The frequency
+    :param HTK: If true, use the HTK formula (mel = 2595 * log10(1+freq/700)). Otherwise use the Slaney piecewise formula.
     :return: The mel
     """
-    return 2595 * np.log10(1 + freq/700)
+    if htk:
+        return 2595 * np.log10(1 + freq/700)
+    
+    # The Slaney formula is a bit different.
+    else:
+        if type(freq) == np.ndarray:
+            mels = np.zeros(freq.shape)
+            for i in range(freq.shape[-1]):
+                if freq[i] < 1000:
+                    mels[i] = 3 * freq[i] / 200
+                else:
+                    mels[i] = 15 + 27 * (np.log(freq[i]/1000) / np.log(6.4))
+            return mels
+        else:
+            if freq < 1000:
+                return 3 * freq / 200
+            else:
+                return 15 + 27 * (np.log(freq/1000) / np.log(6.4))
 
 class Triangle:
     """
@@ -149,15 +183,16 @@ class MelFilterbank:
     """
     Represents a Mel filterbank
     """
-    def __init__(self, fft_freqs: np.ndarray, filters: list):
+    def __init__(self, low_freq, high_freq, num_filters, fft_freqs, quantize=True, normalize=True):
         """
         Creates a new Mel filterbank.
-        :param fft_freqs: An array of FFT frequencies
         :param filters: A list of filters
         """
+        self.filterbank = MelFilterbank.make_filterbank(low_freq, high_freq, num_filters, fft_freqs, quantize, normalize)
+        self.low_freq = low_freq
+        self.high_freq = high_freq
+        self.num_filters = num_filters
         self.fft_freqs = fft_freqs
-        self.filters = filters
-        self.num_filters = len(filters)
     
     def __call__(self, spectrum: np.ndarray) -> np.ndarray:
         """
@@ -168,47 +203,45 @@ class MelFilterbank:
         for i in range(len(self.filters)):
             filt_spec.append(np.dot(self.filters[i].triangle_filter, spectrum))
         return np.array(filt_spec)
-            
 
-def make_filterbank(mel_start, mel_end, num_filters, fft_freqs, quantize=True) -> MelFilterbank:
-    """
-    Generates a Mel filterbank
-    :param mel_start: The lowest Mel for the filterbank
-    :param mel_end: The highest Mel for the filterbank
-    :param num_filters: The number of filters in the filterbank
-    :param fft_freqs: The FFT frequencies
-    :param quantize: Whether or not to quantize the filterbank to the nearest FFT frequency
-    :return: A `MelFilterbank`
-    """
-    # the array size is 2 larger because of endpoints 
-    mel_center_freqs = np.linspace(mel_start, mel_end, num_filters+2)
-    freq_center_freqs = np.zeros((num_filters+2))
-    for i in range(num_filters+2):
-        freq_center_freqs[i] = freq(mel_center_freqs[i])
-    
-    filterbank = []
-    # make each filter
-    for i in range(1, num_filters+1):
-        # Make the triangle generating function
-        if quantize:
-            low_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i-1])]
-            mid_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i])]
-            high_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i+1])]            
-            tri = Triangle(low_freq, mid_freq, high_freq, 0, 1)
-        else:
-            tri = Triangle(freq_center_freqs[i-1], freq_center_freqs[i], freq_center_freqs[i+1], 0, 1)
-        tri_filter = np.zeros((fft_freqs.size))
+    def make_filterbank(low_freq, high_freq, num_filters, fft_freqs, quantize=True, normalize=True):
+        """
+        Generates a Mel filterbank
+        :param mel_start: The lowest Mel for the filterbank
+        :param mel_end: The highest Mel for the filterbank
+        :param num_filters: The number of filters in the filterbank
+        :param fft_freqs: The FFT frequencies
+        :param quantize: Whether or not to quantize the filterbank to the nearest FFT frequency
+        :return: A `MelFilterbank`
+        """
+        # the array size is 2 larger because of endpoints 
+        mel_center_freqs = np.linspace(mel(low_freq), mel(high_freq), num_filters+2)
+        freq_center_freqs = np.zeros((num_filters+2))
+        for i in range(num_filters+2):
+            freq_center_freqs[i] = freq(mel_center_freqs[i])
+        
+        filterbank = []
+        # make each filter
+        for i in range(1, num_filters+1):
+            # Make the triangle generating function
+            if quantize:
+                low_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i-1])]
+                mid_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i])]
+                high_freq = fft_freqs[binsearch(fft_freqs, freq_center_freqs[i+1])]            
+                tri = Triangle(low_freq, mid_freq, high_freq, 0, 1)
+            else:
+                tri = Triangle(freq_center_freqs[i-1], freq_center_freqs[i], freq_center_freqs[i+1], 0, 1)
+            tri_filter = np.zeros((fft_freqs.size))
 
-        # we don't have to update each value in the array of zeros
-        start_idx = binsearch_le(fft_freqs, freq_center_freqs[i-1])
-        end_idx = binsearch_le(fft_freqs, freq_center_freqs[i+1])
-        adjusted_end_idx = min(end_idx + 2, fft_freqs.size)
-        for i in range(start_idx, adjusted_end_idx):
-            tri_filter[i] = tri(fft_freqs[i])
-        mel_tri_filter = MelFilter(fft_freqs, start_idx, adjusted_end_idx, tri_filter, True)
-        filterbank.append(mel_tri_filter)
-    filterbank = MelFilterbank(fft_freqs, filterbank)
-    return filterbank
+            # we don't have to update each value in the array of zeros
+            start_idx = binsearch_le(fft_freqs, freq_center_freqs[i-1])
+            end_idx = binsearch_le(fft_freqs, freq_center_freqs[i+1])
+            adjusted_end_idx = min(end_idx + 2, fft_freqs.shape[-1] - 1)
+            for i in range(start_idx, adjusted_end_idx):
+                tri_filter[i] = tri(fft_freqs[i])
+            mel_tri_filter = MelFilter(fft_freqs, start_idx, adjusted_end_idx, tri_filter, normalize)
+            filterbank.append(mel_tri_filter)
+        return filterbank
 
 def make_mel_spectrum(fb: MelFilterbank, spectrogram: np.ndarray) -> np.ndarray:
     """
@@ -240,15 +273,24 @@ def plot_filterbank(fb: MelFilterbank, fft_freqs):
     plt.show()
 
 if __name__ == "__main__":
+    NUM_MELS = 40
+    FMIN = 64
+    FMAX = 8000
     af = audiofile.read(AUDIO)
     stft_ = ShortTimeFFT(np.hamming(FFT_SIZE), FFT_SIZE // 2, af.sample_rate)
     rfreqs = rfftfreq(FFT_SIZE, 1/af.sample_rate)
-    fb = make_filterbank(mel(64), mel(8000), NUM_FILTERS, rfreqs)
+    fb = MelFilterbank(FMIN, FMAX, NUM_MELS, rfreqs, False, True)
     ispec = stft_.stft(af.samples[0, :])
     pspec = np.square(np.abs(ispec))
-    mel_specgram = make_mel_spectrum(fb, pspec)
-    print(mel_specgram.shape)
-    
+    mel_specgram = make_mel_spectrum(fb, np.abs(ispec))
+    mel_specgram = 10 * np.log10(mel_specgram)
+    print("Custom", mel_specgram.shape)
+    signal_plotter.plot_spectrogram(mel_specgram)
+    mel_specgram2 = librosa.feature.melspectrogram(sr=af.sample_rate, S=pspec, n_fft=FFT_SIZE, hop_length=FFT_SIZE//2, n_mels=NUM_MELS, fmin=FMIN, fmax=FMAX, norm="slaney")
+    print("Librosa", mel_specgram2.shape)
+    signal_plotter.plot_spectrogram(mel_specgram2)
+    mfccs_librosa = librosa.feature.mfcc(S=mel_specgram2)
+    # signal_plotter.plot_spectrogram(mfccs_librosa)
 
     # chunk = af.samples[0, 44100:44100+FFT_SIZE] * WINDOW
     # mag_spec = np.abs(rfft(chunk))
