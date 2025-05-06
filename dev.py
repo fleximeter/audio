@@ -8,9 +8,9 @@ from scipy.fft import rfft, rfftfreq, dct
 from scipy.signal import ShortTimeFFT
 import numpy as np
 from matplotlib import pyplot as plt
-from aus import audiofile, plot
+# from aus import audiofile, plot
 import librosa
-import signal_plotter
+# import signal_plotter
 
 FFT_SIZE = 1024
 AUDIO = "D:/Recording/compress.wav"
@@ -92,13 +92,13 @@ def freq(mel, htk=False):
                 if mel[i] < 15:
                     freqs[i] = (200 / 3) * mel[i]
                 else:
-                    freqs[i] = 15 + 27 * (np.log(mel[i]/1000) / np.log(6.4))
+                    freqs[i] = 1000 * np.power(10, np.log10(6.4) * (mel[i] - 15) / 27)
             return freqs
         else:
             if mel < 15:
                 return (200 / 3) * mel
             else:
-                return 15 + 27 * (np.log(mel/1000) / np.log(6.4))
+                return 1000 * np.power(10, np.log10(6.4) * (mel - 15) / 27)
 
 def mel(freq, htk=False):
     """
@@ -273,23 +273,24 @@ def plot_filterbank(fb: MelFilterbank, fft_freqs):
     plt.show()
 
 if __name__ == "__main__":
-    NUM_MELS = 40
-    FMIN = 64
-    FMAX = 8000
-    af = audiofile.read(AUDIO)
-    stft_ = ShortTimeFFT(np.hamming(FFT_SIZE), FFT_SIZE // 2, af.sample_rate)
-    rfreqs = rfftfreq(FFT_SIZE, 1/af.sample_rate)
-    fb = MelFilterbank(FMIN, FMAX, NUM_MELS, rfreqs, False, True)
-    ispec = stft_.stft(af.samples[0, :])
-    pspec = np.square(np.abs(ispec))
-    mel_specgram = make_mel_spectrum(fb, np.abs(ispec))
-    mel_specgram = 10 * np.log10(mel_specgram)
-    print("Custom", mel_specgram.shape)
-    signal_plotter.plot_spectrogram(mel_specgram)
-    mel_specgram2 = librosa.feature.melspectrogram(sr=af.sample_rate, S=pspec, n_fft=FFT_SIZE, hop_length=FFT_SIZE//2, n_mels=NUM_MELS, fmin=FMIN, fmax=FMAX, norm="slaney")
-    print("Librosa", mel_specgram2.shape)
-    signal_plotter.plot_spectrogram(mel_specgram2)
-    mfccs_librosa = librosa.feature.mfcc(S=mel_specgram2)
+    pass
+    # NUM_MELS = 40
+    # FMIN = 64
+    # FMAX = 8000
+    # af = audiofile.read(AUDIO)
+    # stft_ = ShortTimeFFT(np.hamming(FFT_SIZE), FFT_SIZE // 2, af.sample_rate)
+    # rfreqs = rfftfreq(FFT_SIZE, 1/af.sample_rate)
+    # fb = MelFilterbank(FMIN, FMAX, NUM_MELS, rfreqs, False, True)
+    # ispec = stft_.stft(af.samples[0, :])
+    # pspec = np.square(np.abs(ispec))
+    # mel_specgram = make_mel_spectrum(fb, np.abs(ispec))
+    # mel_specgram = 10 * np.log10(mel_specgram)
+    # print("Custom", mel_specgram.shape)
+    # signal_plotter.plot_spectrogram(mel_specgram)
+    # mel_specgram2 = librosa.feature.melspectrogram(sr=af.sample_rate, S=pspec, n_fft=FFT_SIZE, hop_length=FFT_SIZE//2, n_mels=NUM_MELS, fmin=FMIN, fmax=FMAX, norm="slaney")
+    # print("Librosa", mel_specgram2.shape)
+    # signal_plotter.plot_spectrogram(mel_specgram2)
+    # mfccs_librosa = librosa.feature.mfcc(S=mel_specgram2)
     # signal_plotter.plot_spectrogram(mfccs_librosa)
 
     # chunk = af.samples[0, 44100:44100+FFT_SIZE] * WINDOW
