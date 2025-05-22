@@ -9,7 +9,7 @@ import matplotlib
 import numpy as np
 from aus import plot, spectrum
 import scipy.fft as fft
-import synthesis
+# import synthesis
 
 matplotlib.rcParams['font.serif'] = "Century Schoolbook"
 matplotlib.rcParams['font.family'] = "serif"
@@ -163,8 +163,8 @@ def plot_spectrogram(spectrogram, fft_size=None, hop_size=None, sample_rate=None
     #     if 
     # ax.set_xticks(np.arange(spectrogram.shape[-1]), np.arange(step, step * spectrogram.shape[-1], step))
     # ax.set_title(f"Spectrum")
-    ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("Amplitude (dB)")
+    ax.set_xlabel("Frame no.")
+    ax.set_ylabel("Frequency bin")
     fig.tight_layout()
     if kwargs["filename"] is not None:
         plt.savefig(kwargs["filename"], dpi=kwargs["dpi"])
@@ -176,9 +176,10 @@ if __name__ == "__main__":
     # sig = synthesis.saw(100, 40, 10000, 10000)
     # sig = synthesis.square(100, 40, 10000, 10000)
     # sig = synthesis.triangle(100, 40, 10000, 10000)
-    sig = synthesis.am(440, [40], [1], 1000, 10000)
+    # sig = synthesis.am(440, [40], [1], 1000, 10000)
     # sig = synthesis.ringmod(440, [40], [1], 1000, 10000)
     # sig = synthesis.fm(100, [100, 200, 300, 400, 500], [99, 199, 200, 300, 450], 1000, 10000)
-    spec = fft.rfft(sig)
-    plot_spectrum(spec, 10000, (0, 1000), "data/ammod_spec.svg")
-    plot_signal(sig, 10000, "time", "data/am.svg")
+    # spec = fft.rfft(sig)
+    # plot_spectrum(spec, 10000, (0, 1000), "data/ammod_spec.svg")
+    # plot_signal(sig, 10000, "time", "data/am.svg")
+    pass

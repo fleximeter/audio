@@ -1,4 +1,4 @@
-import signal_plotter
+import mel_dev.signal_plotter as signal_plotter
 import aus.audiofile as af
 import aus.operations as operations
 import aus.synthesis as synthesis
