@@ -197,9 +197,7 @@ def mfcc(mel_specgram):
     Computes MFCCs from a Mel spectrogram
     """
     log_specgram = make_log_spectrum(mel_specgram, -10e8, -80)
-    # mfccs = log_specgram
-    print(log_specgram)
-    mfccs = fft.dct(log_specgram, type=2, norm=None)
+    mfccs = fft.dct(log_specgram, type=2, norm="ortho")
     return mfccs
 
 def plot_filterbank(fb: MelFilterbank, fft_freqs):

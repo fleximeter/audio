@@ -15,7 +15,6 @@ rfft_freqs = fft.rfftfreq(FFT_SIZE, 1/af.sample_rate)
 
 mspec = aus_analyzer.analyze_rstft("D:/Recording/compress.wav", 2048, 40, 20, 4)
 
-#signal_plotter.plot_spectrogram(np.log10(np.square(mspec["magnitude_spectrogram"])))
 signal_plotter.plot_spectrogram(mspec["mfccs"])
 # print(mspec["mfccs"][18][:20])
 
@@ -31,6 +30,6 @@ mel_specgram2 = librosa.feature.melspectrogram(sr=af.sample_rate, S=pspec, n_fft
 
 # mfccs_me = mymel.mfcc(librosa.core.power_to_db(librosa.feature.melspectrogram(y=af.samples[0, :], sr=af.sample_rate, norm="slaney")))
 mfccs_me = mymel.mfcc(mel_specgram)
-mfccs_librosa = librosa.feature.mfcc(y=af.samples[0, :])
-# signal_plotter.plot_spectrogram(mfccs_me[:20, ...])
+# mfccs_librosa = librosa.feature.mfcc(y=af.samples[0, :], sr=af.sample_rate, n_mfcc=20, n_fft=FFT_SIZE, hop_length=FFT_SIZE//2)
+mfccs_librosa = librosa.feature.mfcc(S=mymel.make_log_spectrum(mspec["mel_spectrogram"], -10e8, -80.0), sr=af.sample_rate, n_mfcc=20)
 signal_plotter.plot_spectrogram(mfccs_librosa)
