@@ -1,15 +1,25 @@
-import librosa
-import aus.audiofile as audiofile
-import scipy.fft as fft
+from scipy.signal import ShortTimeFFT
 import numpy as np
+import soundfile as sf
 
-v = np.array([0.1, -0.3, 0.43, -0.2, 0.1, 0.22, -0.432, -0.01, 0.1, -0.3, 0.43, 0.422, 0.1, -0.22, -0.43223, -0.231])
-x = np.array([-3002.48488, -40.384, -958.38506, -1002.4035506, -877.2312, -321.12101, -558.9853, -20.5983, -505.9681, -120.2489, -6590.843, -10.48729, -583.86948, -59.834972, -212.12, -89.348])
-
-logspec = [-97.7998838,  -104.7688013,  -101.67454666,  -93.33433635,  -80.0,
-  -81.05531678,  -99.07861167,  -96.79639572,  -99.1226929,   -98.77948934,
-  -80.92757551,  -87.24501112,  -97.90225495,  -82.64930292,  -89.6414718,
-  -83.47595841,  -86.36013193,  -85.17284276,  -84.82668833,  -84.67004614]
-
-y = fft.dct(logspec, type=2, norm="ortho")
-print(y)
+audio, sr = sf.read("D:\\Recording\\Samples\\Miscellaneous\\cello.wav")
+audio = np.sum(audio, axis=1)
+print(audio.shape)
+FFT_SIZE = 2048
+STFT = ShortTimeFFT(np.hanning(FFT_SIZE), FFT_SIZE//2, sr)
+X = STFT.stft(audio)
+M = np.abs(X)
+P = np.angle(X)
+PV = np.zeros(P.shape, dtype=np.float64)
+print(P.shape)
+for i in range(1, P.shape[-1]):
+    PV[:, i] = P[:, i] - P[:, i-1]
+NM = np.zeros((P.shape[0], P.shape[1] * 2))
+NP = np.zeros((P.shape[0], P.shape[1] * 2))
+NP[:, 0] = PV[:, 0]
+NP[:, 1] = PV[:, 0] * 2
+for i in range(2, NP.shape[-1]):
+    NP[:, i] = NP[:, i-1] + PV[:, i]
+NX = M * np.exp(1j * NP)
+na = STFT.istft(NX)
+sf.write("D:\\Recording\\test.wav", na, sr)
