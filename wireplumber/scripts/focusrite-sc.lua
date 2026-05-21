@@ -33,6 +33,28 @@ supercollider_om = ObjectManager {
 -----------------------------------------------------------------------------
 
 line_in_connections = {
+  -- for the 2i2
+  {
+    output = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*capture_FL" },
+    },
+    input = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*in_1" },
+    },
+  },
+  {
+    output = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*capture_FR" },
+    },
+    input = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*in_2" },
+    },
+  },
+  -- for the 18i20
   {
     output = Interest {
       type = "port",
@@ -116,6 +138,28 @@ line_in_connections = {
 }
 
 line_out_connections = {
+  -- for the 2i2
+  {
+    output = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*out_1" },
+    },
+    input = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*playback_FL" },
+    },
+  },
+  {
+    output = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*out_2" },
+    },
+    input = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*playback_FR" },
+    },
+  },
+  -- for the 18i20
   {
     output = Interest {
       type = "port",
