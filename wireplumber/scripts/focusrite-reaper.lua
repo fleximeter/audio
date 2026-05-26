@@ -1,5 +1,5 @@
 -- This file is a script that automatically links Reaper
--- to the Focusrite 18i20 interface in Studio X.
+-- to either a Focusrite Scarlett 2i2 or 18i20.
 -- It also automatically disconnects Reaper from the internal
 -- sound card, but only if the Focusrite is present.
 
@@ -11,7 +11,7 @@
 -----------------------------------------------------------------------------
 
 -- Focusrite
-interface_om = ObjectManager {
+local interface_om = ObjectManager {
   Interest {
     type = "port",
     Constraint { "port.alias", "matches", "Scarlett*" },
@@ -19,7 +19,7 @@ interface_om = ObjectManager {
 }
 
 -- Reaper
-reaper_om = ObjectManager {
+local reaper_om = ObjectManager {
   Interest {
     type = "port",
     Constraint { "port.alias", "matches", "REAPER*" },
@@ -32,7 +32,7 @@ reaper_om = ObjectManager {
 -----------------------------------------------------------------------------
 -----------------------------------------------------------------------------
 
-line_in_connections = {
+local line_in_connections = {
   -- for the 2i2
   {
     output = Interest {
@@ -137,7 +137,7 @@ line_in_connections = {
   },
 }
 
-line_out_connections = {
+local line_out_connections = {
   -- for the 2i2
   {
     output = Interest {
@@ -249,7 +249,7 @@ line_out_connections = {
 -----------------------------------------------------------------------------
 
 -- Takes two "port" nodes and links them
-function link_ports(node_left, node_right)
+local function link_ports(node_left, node_right)
   local link = Link("link-factory", {
     ["link.output.node"] = node_left.properties["node.id"],
     ["link.output.port"] = node_left.properties["port.id"],
@@ -263,7 +263,7 @@ end
 -- Makes all specified connections.
 -- This function is run each time one of the ObjectManagers
 -- detects a new object.
-function make_all_connections(obj, node)
+local function make_all_connections(obj, node)
   -- Link line ins to Reaper
   for _, connection in ipairs(line_in_connections) do
     -- For each connection, look up the output and input Interest
@@ -290,7 +290,7 @@ function make_all_connections(obj, node)
 end
 
 -- A debugger to verify that nodes are being detected by the ObjectManagers
-function debug(obj, node)
+local function debug(obj, node)
   print("Object added!")
   for k, v in pairs(node.properties) do
     print("  " .. tostring(k) .. " = " .. tostring(v))
@@ -311,23 +311,16 @@ reaper_om:activate()
 -----------------------------------------------------------------------------
 -----------------------------------------------------------------------------
 
--- Tracks all links
-links_om = ObjectManager {
-  Interest {
-    type = "link",
-  },
-}
-
 -- Tracks nodes representing the internal sound card
-ic_node_om = ObjectManager {
+local ic_node_om = ObjectManager {
   Interest {
     type = "node",
-    Constraint { "node.description", "matches", "Built-in Audio Analog Stereo*" },
+    Constraint { "node.description", "matches", "Built-in Audio*" },
   },
 }
 
 -- Tracks nodes representing the Focusrite
-focusrite_node_om = ObjectManager {
+local focusrite_node_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "node.description", "matches", "Scarlett*" },
@@ -335,55 +328,68 @@ focusrite_node_om = ObjectManager {
 }
 
 -- Tracks the Reaper node
-reaper_node_om = ObjectManager {
+local reaper_node_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "node.description", "matches", "REAPER*" },
   },
 }
 
-links_om:connect("object-added", function(obj, link)
-  local props = link.properties
-  local link_in = props["link.input.node"]
-  local link_out = props["link.output.node"]
-  
-  -- Check if we have a link from the integrated sound card microphone to Reaper
-  local ic_card1 = ic_node_om:lookup(Interest {
-    type = "node",
-    Constraint { "object.id", "=", link_out },
-  })
-  local sc_1 = reaper_node_om:lookup(Interest {
-    type = "node",
-    Constraint { "object.id", "=", link_in },
-  })
-  if ic_card1 and sc_1 then
-    -- Only destroy the link if a Focusrite interface is present
-    if focusrite_node_om:lookup() then
-      print("Found link from integrated sound card to REAPER. Requesting destroy...")
-      link:request_destroy()
-    end
-  end
-  
-  -- Check if we have a link from Reaper to the integrated sound card
-  local sc_2 = reaper_node_om:lookup(Interest {
-    type = "node",
-    Constraint { "object.id", "=", link_out },
-  })
-  local ic_card2 = ic_node_om:lookup(Interest {
-    type = "node",
-    Constraint { "object.id", "=", link_in },
-  })
-  if sc_2 and ic_card2 then
-    -- Only destroy the link if a Focusrite interface is present
-    if focusrite_node_om:lookup() then
-      print("Found link from REAPER to integrated sound card. Requesting destroy...")
-      link:request_destroy()
-    end
-  end
-end)
+-- Tracks all links
+local links_om = ObjectManager {
+  Interest {
+    type = "link",
+  },
+}
 
-links_om:activate()
+local function destroy_ic_links()
+  if not focusrite_node_om:lookup() then return end
+  for link in links_om:iterate() do
+    local props = link.properties
+    local link_in = props["link.input.node"]
+    local link_out = props["link.output.node"]
+  
+    -- Check if we have a link from the integrated sound card microphone to SuperCollider
+    local ic_card1 = ic_node_om:lookup(Interest {
+      type = "node",
+      Constraint { "object.id", "=", link_out },
+    })
+    local reaper_1 = reaper_node_om:lookup(Interest {
+      type = "node",
+      Constraint { "object.id", "=", link_in },
+    })
+    if ic_card1 and reaper_1 then
+      print("Found link from integrated sound card to Reaper. Requesting destroy...")
+      link:request_destroy()
+    elseif reaper_1 then
+      print("Found Reaper link in but no ic link.")
+    end
+  
+    -- Check if we have a link from SuperCollider to the integrated sound card
+    local reaper_2 = reaper_node_om:lookup(Interest {
+      type = "node",
+      Constraint { "object.id", "=", link_out },
+    })
+    local ic_card2 = ic_node_om:lookup(Interest {
+      type = "node",
+      Constraint { "object.id", "=", link_in },
+    })
+    if reaper_2 and ic_card2 then
+      print("Found link from Reaper to integrated sound card. Requesting destroy...")
+      link:request_destroy()
+    elseif reaper_2 then
+      print("Found Reaper link out but no ic link.")
+    end
+  end
+end
+
+ic_node_om:connect("object-added", destroy_ic_links)
+reaper_node_om:connect("object-added", destroy_ic_links)
+focusrite_node_om:connect("object-added", destroy_ic_links)
+links_om:connect("object-added", destroy_ic_links)
 ic_node_om:activate()
-focusrite_node_om:activate()
 reaper_node_om:activate()
+focusrite_node_om:activate()
+links_om:activate()
 
+print("Script focusrite-reaper.lua loaded.")
