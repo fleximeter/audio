@@ -240,6 +240,26 @@ local line_out_connections = {
       Constraint { "port.alias", "matches", "*playback_AUX7" },
     },
   },
+  {
+    output = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*out9" },
+    },
+    input = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*playback_AUX8" },
+    },
+  },
+  {
+    output = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*out10" },
+    },
+    input = Interest {
+      type = "port",
+      Constraint { "port.alias", "matches", "*playback_AUX9" },
+    },
+  },
 }
 
 -----------------------------------------------------------------------------
